@@ -6,6 +6,7 @@
     <title>Biogas Beneficiaries - Kenya</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; }
         .top-bar { background-color: #2E7D32; color: white; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; }
@@ -25,9 +26,10 @@
         #countySelect { max-width: 300px; margin: auto; display: block; }
         #selector { text-align: center; margin: 2rem 0; }
         #filters { margin-bottom: 1rem; }
-        footer { background-color: #2E7D32; color: white; text-align: center; padding: 10px; position: fixed; bottom: 0; width: 100%; }
+        footer { background-color: #2E7D32; color: white; text-align: center; padding: 5px; position: fixed; bottom: 0; width: 100%; }
         .action-buttons { display: flex; gap: 0.5rem; }
         .action-buttons .btn { width: 100px; height: 32px; display: flex; align-items: center; justify-content: center; }
+        #map { height: 400px; }
 
         @media (max-width: 768px) {
             .top-bar { padding: 5px 10px; flex-wrap: wrap; }
@@ -46,6 +48,7 @@
             .table th, .table td { font-size: 14px; }
             .action-buttons { flex-direction: column; }
             .action-buttons .btn { width: 100%; max-width: 200px; margin: 0 auto; }
+            #map { height: 300px; }
         }
 
         @media (max-width: 576px) {
@@ -57,6 +60,7 @@
             nav ul li { font-size: 12px; margin: 5px; }
             .banner h2 { font-size: 20px; }
             .table th, .table td { font-size: 12px; padding: 0.5rem; }
+            #map { height: 250px; }
         }
     </style>
 </head>
@@ -66,7 +70,9 @@
             <span><i class="bi bi-telephone"></i> +254 (0) 20 4841000</span>
             <span><i class="bi bi-envelope"></i> info@energy.go.ke</span>
         </div>
-        
+        <div class="right">
+            <button id="authBtn" class="btn btn-light">Login</button>
+        </div>
     </div>
     <div class="logo-header">
         <img src="energy.jpg" alt="Ministry Logo">
@@ -86,17 +92,15 @@
         <h2>Biogas Beneficiaries Kenya</h2>
     </div>
     
-    <div id="selector">
-        <select id="countySelect" class="form-select">
+    <div id="selector" class="d-flex justify-content-center align-items-end">
+        <select id="countySelect" class="form-select me-3" style="max-width: 300px;">
             <option value="">Select County</option>
-            <option value="vihiga">Vihiga County</option>
-            <option value="nandi">Nandi County</option>
-            <option value="nyeri">Nyeri County</option>
         </select>
+        <button id="addBtn" class="btn btn-primary">Add Beneficiary</button>
     </div>
     <div class="content-section" id="content">
         
-        <div id="filters" class="row">
+        <div id="filters" class="row flex-grow-1">
             <div class="col-md-3"><input type="text" id="nameFilter" class="form-control" placeholder="Search Name"></div>
             <div class="col-md-3"><input type="text" id="subcountyFilter" class="form-control" placeholder="Search Sub-County"></div>
             <div class="col-md-3"><input type="text" id="wardFilter" class="form-control" placeholder="Search Ward"></div>
@@ -109,12 +113,10 @@
                         <th>#</th>
                         <th>Name</th>
                         <th>ID No.</th>
-                        <th>Phone No.</th>
                         <th>Sub-County</th>
                         <th>Ward</th>
                         <th>Village</th>
                         <th>No. of Cows</th>
-                        <th>ZG Unit</th>
                         <th>Comments</th>
                         <th>Actions</th>
                     </tr>
@@ -124,151 +126,1211 @@
                 </tbody>
             </table>
         </div>
+        <div id="map" class="mt-3"></div>
+    </div>
+    <div class="modal fade" id="beneficiaryModal" tabindex="-1" aria-labelledby="beneficiaryModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="beneficiaryModalLabel">Add/Update Beneficiary</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="beneficiaryForm">
+                        <div class="mb-3">
+                            <label for="county" class="form-label">County</label>
+                            <input type="text" class="form-control" id="county" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="idno" class="form-label">ID No.</label>
+                            <input type="text" class="form-control" id="idno">
+                        </div>
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Phone No.</label>
+                            <input type="text" class="form-control" id="phone">
+                        </div>
+                        <div class="mb-3">
+                            <label for="subcounty" class="form-label">Sub-County</label>
+                            <input type="text" class="form-control" id="subcounty">
+                        </div>
+                        <div class="mb-3">
+                            <label for="ward" class="form-label">Ward</label>
+                            <input type="text" class="form-control" id="ward">
+                        </div>
+                        <div class="mb-3">
+                            <label for="village" class="form-label">Village</label>
+                            <input type="text" class="form-control" id="village">
+                        </div>
+                        <div class="mb-3">
+                            <label for="lat" class="form-label">Latitude</label>
+                            <input type="number" step="any" class="form-control" id="lat">
+                        </div>
+                        <div class="mb-3">
+                            <label for="lon" class="form-label">Longitude</label>
+                            <input type="number" step="any" class="form-control" id="lon">
+                        </div>
+                        <div class="mb-3">
+                            <label for="cows" class="form-label">No. of Cows</label>
+                            <input type="number" class="form-control" id="cows">
+                        </div>
+                        <div class="mb-3">
+                            <label for="comments" class="form-label">Comments</label>
+                            <input type="text" class="form-control" id="comments">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="saveBtn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="loginModalLabel">Login</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Role</label>
+                            <select id="role" class="form-select">
+                                <option value="guest">Guest</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="mb-3 d-none" id="passwordGroup">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="loginSubmitBtn">Login</button>
+                </div>
+            </div>
+        </div>
     </div>
     <footer>
         <p>© 2024 State Department for Energy. All Rights Reserved.</p>
     </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
-        const data = {
+        let data = localStorage.getItem('biogasData') ? JSON.parse(localStorage.getItem('biogasData')) : {
             vihiga: [
-                { number:1, name:"Mary Lavoga Museywa", idno:"0833547", phone:"0714245157", subcounty:"Sabatia", ward:"Wodanga", village:"Vokoli", lat:0.114444, lon:34.784167, cows:4, zgunit:"Good", comments:"Recommended" },
-                { number:2, name:"Meshack Kihima Eboso", idno:"6659836", phone:"0727214638", subcounty:"Sabatia", ward:"Wodanga", village:"Sabatia", lat:0.118333, lon:34.79333, cows:4, zgunit:"Good", comments:"Recommended" },
-                { number:3, name:"Debora Shimuri Majanga", idno:"11317861", phone:"0711384677", subcounty:"Sabatia", ward:"W. Sabatia", village:"Wangulu", lat:0.126667, lon:34.594163, cows:4, zgunit:"In a house, floor good", comments:"Recommended" },
-                { number:4, name:"Ernest Akivambo", idno:"1187217", phone:"0711863242", subcounty:"Sabatia", ward:"W. Sabatia", village:"Wangulu", lat:0.125556, lon:34.762222, cows:2, zgunit:"Good", comments:"Recommended" },
-                { number:5, name:"Douglas Kaahi", idno:"11042394", phone:"0721463614", subcounty:"Sabatia", ward:"Wodanga", village:"Lusengeli", lat:0.100278, lon:34.813333, cows:3, zgunit:"Good", comments:"Recommended" },
-                { number:6, name:"Haggai Asena Liboyio", idno:"5625573", phone:"0723297091", subcounty:"Sabatia", ward:"West Sabatia", village:"Kisatiru", lat:0.122778, lon:34.749722, cows:3, zgunit:"To repair floor slab", comments:"Recommended" },
-                { number:7, name:"Hesbon Kivairu", idno:"0389492", phone:"0707880872", subcounty:"Sabatia", ward:"Wodanga", village:"Ingalaba", lat:0.121389, lon:34.794444, cows:2, zgunit:"To cast floor slab", comments:"Recommended" },
-                { number:8, name:"Alice Kidaha", idno:"11043499", phone:"0727797673", subcounty:"Sabatia", ward:"N. Maragoli", village:"Chugi", lat:0.086389, lon:34.746663, cows:2, zgunit:"Good", comments:"Recommended" },
-                { number:9, name:"Susan Nalyuba", idno:"12699157", phone:"0725902832", subcounty:"Sabatia", ward:"Wodanga", village:"", lat:0.106667, lon:34.786941, cows:2, zgunit:"Good", comments:"Recommended" },
-                { number:10, name:"Aggrey Ndeda Jirande", idno:"6971098", phone:"0722224182", subcounty:"Sabatia", ward:"Chavakali", village:"Evojo", lat:0.118889, lon:34.742774, cows:2, zgunit:"Good", comments:"Recommended" },
-                { number:11, name:"Etkin Obiero", idno:"21743257", phone:"0725358328", subcounty:"Sabatia", ward:"Wodanga", village:"Itengi", lat:0.124167, lon:34.782781, cows:2, zgunit:"To repair unit floor slab", comments:"Recommended" },
-                { number:12, name:"Rose Segede", idno:"", phone:"0712298590", subcounty:"Sabatia", ward:"Busali East", village:"Ikobero", lat:0.138055, lon:34.817226, cows:3, zgunit:"Good", comments:"Recommended" },
-                { number:13, name:"Ruth Mwimbi", idno:"7895562", phone:"0722998146", subcounty:"Sabatia", ward:"Wodanga", village:"Lusengeli", lat:0.113889, lon:34.803333, cows:4, zgunit:"Good", comments:"Recommended" },
-                { number:14, name:"Gladys Luseno", idno:"0447762", phone:"0719570084", subcounty:"Sabatia", ward:"Wodanga", village:"Itengi", lat:0.121111, lon:34.784997, cows:2, zgunit:"Good", comments:"Recommended" },
-                { number:15, name:"Nashon Liayi Erote", idno:"20160141", phone:"0725476679", subcounty:"Hamisi", ward:"Shiru", village:"Cheptulu", lat:0.130834, lon:34.862778, cows:3, zgunit:"Good", comments:"Recommended" },
-                { number:16, name:"John Avosa", idno:"0729441", phone:"0721753364", subcounty:"Shiru", ward:"Shaviringa", village:"", lat:0.159167, lon:34.901944, cows:2, zgunit:"Good", comments:"Recommended" },
-                { number:17, name:"Eric Libese", idno:"", phone:"0710943072\n0789759885", subcounty:"Lugaga", ward:"Wamuluma", village:"", lat:null, lon:null, cows:"", zgunit:"", comments:"Recommended" },
-                { number:18, name:"Emily Asirigwa", idno:"6294552", phone:"0726377526", subcounty:"Sabatia", ward:"N. Maragoli", village:"Mudete", lat:null, lon:null, cows:"", zgunit:"", comments:"Not reached. Spouse being buried." },
-                { number:19, name:"Benson Musatsi", idno:"0308156", phone:"0723054019", subcounty:"Madzuu", ward:"Mung’oma", village:"Madzuu", lat:0.030556, lon:34.675281, cows:6, zgunit:"Good", comments:"Hospitalized, spouse non-committal on feeding." },
-                { number:20, name:"Charles Ongulu Shiroko", idno:"6393402", phone:"0722719260", subcounty:"Khwisero", ward:"Kisa", village:"Khwisero", lat:0.168389, lon:34.596358, cows:4, zgunit:"Good", comments:"Recommended" }
+                { number:1, name:"Mary Lavoga Museywa", idno:"0833547", phone:"0714245157", subcounty:"Sabatia", ward:"Wodanga", village:"Vokoli", lat:0.114444, lon:34.784167, cows:4, comments:"Recommended" },
+                { number:2, name:"Meshack Kihima Eboso", idno:"6659836", phone:"0727214638", subcounty:"Sabatia", ward:"Wodanga", village:"Sabatia", lat:0.118333, lon:34.79333, cows:4, comments:"Recommended" },
+                { number:3, name:"Debora Shimuri Majanga", idno:"11317861", phone:"0711384677", subcounty:"Sabatia", ward:"W. Sabatia", village:"Wangulu", lat:0.126667, lon:34.594163, cows:4, comments:"Recommended" },
+                { number:4, name:"Ernest Akivambo", idno:"1187217", phone:"0711863242", subcounty:"Sabatia", ward:"W. Sabatia", village:"Wangulu", lat:0.125556, lon:34.762222, cows:2, comments:"Recommended" },
+                { number:5, name:"Douglas Kaahi", idno:"11042394", phone:"0721463614", subcounty:"Sabatia", ward:"Wodanga", village:"Lusengeli", lat:0.100278, lon:34.813333, cows:3, comments:"Recommended" },
+                { number:6, name:"Haggai Asena Liboyio", idno:"5625573", phone:"0723297091", subcounty:"Sabatia", ward:"West Sabatia", village:"Kisatiru", lat:0.122778, lon:34.749722, cows:3, comments:"Recommended" },
+                { number:7, name:"Hesbon Kivairu", idno:"0389492", phone:"0707880872", subcounty:"Sabatia", ward:"Wodanga", village:"Ingalaba", lat:0.121389, lon:34.794444, cows:2, comments:"Recommended" },
+                { number:8, name:"Alice Kidaha", idno:"11043499", phone:"0727797673", subcounty:"Sabatia", ward:"N. Maragoli", village:"Chugi", lat:0.086389, lon:34.746663, cows:2, comments:"Recommended" },
+                { number:9, name:"Susan Nalyuba", idno:"12699157", phone:"0725902832", subcounty:"Sabatia", ward:"Wodanga", village:"", lat:0.106667, lon:34.786941, cows:2, comments:"Recommended" },
+                { number:10, name:"Aggrey Ndeda Jirande", idno:"6971098", phone:"0722224182", subcounty:"Sabatia", ward:"Chavakali", village:"Evojo", lat:0.118889, lon:34.742774, cows:2, comments:"Recommended" },
+                { number:11, name:"Etkin Obiero", idno:"21743257", phone:"0725358328", subcounty:"Sabatia", ward:"Wodanga", village:"Itengi", lat:0.124167, lon:34.782781, cows:2, comments:"Recommended" },
+                { number:12, name:"Rose Segede", idno:"", phone:"0712298590", subcounty:"Sabatia", ward:"Busali East", village:"Ikobero", lat:0.138055, lon:34.817226, cows:3, comments:"Recommended" },
+                { number:13, name:"Ruth Mwimbi", idno:"7895562", phone:"0722998146", subcounty:"Sabatia", ward:"Wodanga", village:"Lusengeli", lat:0.113889, lon:34.803333, cows:4, comments:"Recommended" },
+                { number:14, name:"Gladys Luseno", idno:"0447762", phone:"0719570084", subcounty:"Sabatia", ward:"Wodanga", village:"Itengi", lat:0.121111, lon:34.784997, cows:2, comments:"Recommended" },
+                { number:15, name:"Nashon Liayi Erote", idno:"20160141", phone:"0725476679", subcounty:"Hamisi", ward:"Shiru", village:"Cheptulu", lat:0.130834, lon:34.862778, cows:3, comments:"Recommended" },
+                { number:16, name:"John Avosa", idno:"0729441", phone:"0721753364", subcounty:"Shiru", ward:"Shaviringa", village:"", lat:0.159167, lon:34.901944, cows:2, comments:"Recommended" },
+                { number:17, name:"Eric Libese", idno:"", phone:"0710943072\\n0789759885", subcounty:"Lugaga", ward:"Wamuluma", village:"", lat:null, lon:null, cows:"", comments:"Recommended" },
+                { number:18, name:"Emily Asirigwa", idno:"6294552", phone:"0726377526", subcounty:"Sabatia", ward:"N. Maragoli", village:"Mudete", lat:null, lon:null, cows:"", comments:"Not reached. Spouse being buried." },
+                { number:19, name:"Benson Musatsi", idno:"0308156", phone:"0723054019", subcounty:"Madzuu", ward:"Mung’oma", village:"Madzuu", lat:0.030556, lon:34.675281, cows:6, comments:"Hospitalized, spouse non-committal on feeding." },
+                { number:20, name:"Charles Ongulu Shiroko", idno:"6393402", phone:"0722719260", subcounty:"Khwisero", ward:"Kisa", village:"Khwisero", lat:0.168389, lon:34.596358, cows:4, comments:"Recommended" },
+                { number:21, name:"Mary Lavoga Museywa", idno:"0833547", phone:"0714245157", subcounty:"Sabatia", ward:"Wodanga", village:"Vokoli", lat:0.114444, lon:34.784167, cows:4, comments:"Feeding Recommended" },
+                { number:22, name:"Meshack Kihima Eboso", idno:"6659836", phone:"0727214638", subcounty:"Sabatia", ward:"Wodanga", village:"Sabatia", lat:0.118333, lon:34.79333, cows:4, comments:"Feeding Recommended" },
+                { number:23, name:"Debora Shimuri Majanga", idno:"11317861", phone:"0711384677", subcounty:"Sabatia", ward:"W. Sabatia", village:"Wangulu", lat:0.126667, lon:34.594163, cows:4, comments:"Feeding underway" },
+                { number:24, name:"Ernest Akivambo", idno:"1187217", phone:"0711863242", subcounty:"Sabatia", ward:"W. Sabatia", village:"Wangulu", lat:0.125556, lon:34.762222, cows:2, comments:"Feeding underway" },
+                { number:25, name:"Douglas Kashi", idno:"11042394", phone:"0721463614", subcounty:"Sabatia", ward:"Wodanga", village:"Lusengeli", lat:0.100278, lon:34.813333, cows:3, comments:"Feeding Recommended" },
+                { number:26, name:"Haggai Asena Liboyio", idno:"5625573", phone:"0723297091", subcounty:"Sabatia", ward:"West Sabatia", village:"Kisatiru", lat:0.122778, lon:34.749722, cows:3, comments:"Feeding Recommended" },
+                { number:27, name:"Hesbon Kivairu", idno:"0389492", phone:"0707880872", subcounty:"Sabatia", ward:"Wodanga", village:"Ingalaba", lat:0.121389, lon:34.794444, cows:2, comments:"Feeding Recommended" },
+                { number:28, name:"Alice Kidaha", idno:"11043499", phone:"0727797673", subcounty:"Sabatia", ward:"N. Maragoli", village:"Chugi", lat:0.086389, lon:34.746663, cows:2, comments:"Feeding Recommended" },
+                { number:29, name:"Susan Nalyuba", idno:"12699157", phone:"0725902832", subcounty:"Sabatia", ward:"Wodanga", village:"", lat:0.106667, lon:34.786941, cows:2, comments:"Feeding underway" },
+                { number:30, name:"Aggrey Ndeda Jirande", idno:"6971098", phone:"0722224182", subcounty:"Sabatia", ward:"Chavakali", village:"Evojo", lat:0.118889, lon:34.742774, cows:2, comments:"Feeding Recommended" },
+                { number:31, name:"Etkin Obiero", idno:"21743257", phone:"0725358328", subcounty:"Sabatia", ward:"Wodanga", village:"Itengi", lat:0.124167, lon:34.782781, cows:2, comments:"Feeding Recommended" },
+                { number:32, name:"Rose Segede", idno:"", phone:"0712298590", subcounty:"Sabatia", ward:"Busali East", village:"Ikobero", lat:0.138055, lon:34.817226, cows:3, comments:"Feeding Recommended" },
+                { number:33, name:"Ruth Mwimbi", idno:"7895562", phone:"0722998146", subcounty:"Sabatia", ward:"Wodanga", village:"Lusengeli", lat:0.113889, lon:34.803333, cows:4, comments:"Feeding Recommended" },
+                { number:34, name:"Gladys Luseno", idno:"0447762", phone:"0719570084", subcounty:"Sabatia", ward:"Wodanga", village:"Itengi", lat:0.121111, lon:34.784997, cows:2, comments:"Feeding underway" },
+                { number:35, name:"John Avosa", idno:"0729441", phone:"0721753364", subcounty:"Shiru", ward:"Shaviringa", village:"", lat:0.159167, lon:34.901944, cows:2, comments:"Feeding Recommended" },
+                { number:36, name:"Benson Musatsi", idno:"0308156", phone:"0723054019", subcounty:"Madzuu", ward:"Mung’oma", village:"Madzuu", lat:0.030556, lon:34.675281, cows:6, comments:"Feeding Recommended" },
+                { number:37, name:"Charles Ongulu Shiroko", idno:"6393402", phone:"0722719260", subcounty:"Khwisero", ward:"Kisa", village:"Khwisero", lat:0.168389, lon:34.596358, cows:4, comments:"Feeding Recommended" },
+                { number:38, name:"Patricia Aswani", idno:"12676639", phone:"0720605698", subcounty:"Sabatia", ward:"Wodanga", village:"Sabatia", lat:0.113889, lon:34.786389, cows:"", comments:"Feeding Recommended" },
+                { number:39, name:"Robert Endeheli", idno:"", phone:"0712857591", subcounty:"Vihiga", ward:"Lugaga wamuluma", village:"Magui", lat:0.055833, lon:34.693889, cows:"", comments:"Feeding Recommended" },
+                { number:40, name:"Martin Dagaye", idno:"11093228", phone:"0720956602", subcounty:"Sabatia", ward:"Busali", village:"Wandega", lat:0.128056, lon:34.763611, cows:"", comments:"Feediing Recommended" },
+                { number:41, name:"Nashon Liayi Erote", idno:"20160141", phone:"0725476679", subcounty:"Hamisi", ward:"Shiru", village:"Cheptulu", lat:0.130834, lon:34.862778, cows:3, comments:"Farmer has one cow" },
+                { number:42, name:"Eric Libese", idno:"", phone:"0710943072\\n0789759885", subcounty:"Lugaga", ward:"Wamuluma", village:"", lat:null, lon:null, cows:"", comments:"Farmer not reached over phone" },
+                { number:43, name:"Emily Asirigwa", idno:"6294552", phone:"0726377526", subcounty:"Sabatia", ward:"N. Maragoli", village:"Mudete", lat:null, lon:null, cows:"", comments:"Not reached. Spouse being buried." }
             ],
             nandi: [
-                { number:1, name:"Pius Korir", idno:"22017876", phone:"0724399251", subcounty:"Chesumei", ward:"Chemundu/Kapngetuny", village:"Nukia", lat:0.259444, lon:35.066944, cows:"", zgunit:"", comments:"Recommended" },
-                { number:2, name:"Noah Kipkemboi Talaam", idno:"11506602", phone:"0723490910", subcounty:"Chesumei", ward:"Kosirai", village:"Belekenya", lat:0.266389, lon:35.146667, cows:"", zgunit:"", comments:"Recommended" },
-                { number:3, name:"Joseph Sunge", idno:"11847920", phone:"0725990875", subcounty:"Chesumei", ward:"Kosorai", village:"Tembeso", lat:0.334444, lon:35.140556, cows:"", zgunit:"", comments:"Recommended" },
-                { number:4, name:"Elisha Seroney", idno:"27454160", phone:"0729168918", subcounty:"Chesumei", ward:"Kaptel kamaiywo", village:"Saniak", lat:0.335, lon:35.080556, cows:"", zgunit:"", comments:"Recommended" },
-                { number:5, name:"Kaimosi Agricultural Training Centre", idno:"", phone:"", subcounty:"Emgwen", ward:"Kapkangani", village:"Cheptingon", lat:0.209722, lon:35.953333, cows:"", zgunit:"", comments:"Recommended" },
-                { number:6, name:"Hosea Rono", idno:"1249803", phone:"0724590640", subcounty:"Emgwen", ward:"Kapsabet", village:"Mosobecho", lat:0.181111, lon:35.109722, cows:"", zgunit:"", comments:"Recommended" },
-                { number:7, name:"Robert Meli", idno:"13363984", phone:"0711623466", subcounty:"Emgwen", ward:"Kilibwoni", village:"Kaibeiyo", lat:0.2525, lon:35.222778, cows:"", zgunit:"", comments:"Recommended" },
-                { number:8, name:"Hosea Serem/Lilian", idno:"28132948", phone:"0726343508\n0705905240", subcounty:"Mosop", ward:"Kabiyet", village:"Kabiyet", lat:0.402778, lon:35.088333, cows:"", zgunit:"", comments:"Recommended" },
-                { number:9, name:"Emmanuel Keino", idno:"21459630", phone:"0710189290\n0712580526", subcounty:"Mosop", ward:"Kabiyet", village:"Ndulele", lat:0.402778, lon:35.069444, cows:"", zgunit:"", comments:"Recommended" },
-                { number:10, name:"Enock Sang", idno:"", phone:"0713116479", subcounty:"Mosop", ward:"Keplonik/ Sang’alo", village:"Kapkenyeloi", lat:0.394167, lon:35.049167, cows:"", zgunit:"", comments:"Recommended" },
-                { number:11, name:"Donald Kipchirchir Tum", idno:"", phone:"0723383081\n0764211870", subcounty:"Mosop", ward:"Kurgung", village:"Senetwet", lat:0.438056, lon:35.981944, cows:"", zgunit:"", comments:"Recommended" },
-                { number:12, name:"Rose Tanui", idno:"11167100", phone:"0720848964", subcounty:"Mosop", ward:"Ndalat – Kabiemit", village:"Kaptagilis", lat:0.518611, lon:35.119722, cows:"", zgunit:"", comments:"Recommended" },
-                { number:13, name:"Pamela Jemurgor", idno:"23363133", phone:"0717450178", subcounty:"Mosop", ward:"Sangalo Kebulonik", village:"Chepyagoris", lat:0.361667, lon:35.011667, cows:"", zgunit:"", comments:"Recommended" },
-                { number:14, name:"Caroline Kiprop Meto", idno:"", phone:"0713887158", subcounty:"Mosop", ward:"Surungai", village:"Chepkoiyo", lat:0.452222, lon:34.990556, cows:"", zgunit:"", comments:"Recommended" },
-                { number:15, name:"Alice Kiprono", idno:"21738196", phone:"0710407074", subcounty:"Nandi Hills", ward:"Chepkunyuk", village:"Kapchuria", lat:0.158333, lon:35.203333, cows:"", zgunit:"", comments:"Recommended" },
-                { number:16, name:"Pius Tarus", idno:"10540723", phone:"0703488547", subcounty:"Nandi Hills", ward:"Chepkunyuk", village:"Kipkoror", lat:0.159722, lon:35.253333, cows:"", zgunit:"", comments:"Recommended" },
-                { number:17, name:"John K. Tanui", idno:"21771244", phone:"0700008103", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"Cheptililik", lat:0.155833, lon:35.189444, cows:"", zgunit:"", comments:"Recommended" },
-                { number:18, name:"Jane Mutai Chepketer", idno:"0773879", phone:"07186443660729310975", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"Kaptien", lat:0.155556, lon:35.195, cows:"", zgunit:"", comments:"Recommended" },
-                { number:19, name:"Shadrack Bor", idno:"21099586", phone:"0708491101", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"Kipsebwo", lat:0.138611, lon:35.169444, cows:"", zgunit:"", comments:"Recommended" },
-                { number:20, name:"Jacob Kipkemboi Mutai", idno:"13809235", phone:"0727760880", subcounty:"Nandi Hills", ward:"Ol’ Lessos", village:"Cheptingting", lat:0.189722, lon:35.2675, cows:"", zgunit:"", comments:"Recommended" },
-                { number:21, name:"Elilzabeth Chepkorir", idno:"3291026", phone:"0718073595", subcounty:"Nandi Hills", ward:"OL’Lessos", village:"Cheptingting", lat:0.177778, lon:35.287222, cows:"", zgunit:"", comments:"Recommended" },
-                { number:22, name:"Julius Kirui", idno:"22069481", phone:"07241488873", subcounty:"Nandi Hills", ward:"OL’Lessos", village:"Cheptingting", lat:0.190278, lon:35.265278, cows:"", zgunit:"", comments:"Recommended" },
-                { number:23, name:"Alex Misoi", idno:"30410705", phone:"0725249931", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"Kipkimba", lat:0.075556, lon:35.196667, cows:"", zgunit:"", comments:"Recommended" },
-                { number:24, name:"Joshua Too", idno:"33377738", phone:"0718061118", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"kaplelmet", lat:0.083333, lon:35.178889, cows:"", zgunit:"", comments:"Recommended" },
-                { number:25, name:"Hellen chepkemboi", idno:"8590536", phone:"0720635858", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"Kapkemba", lat:0.073889, lon:35.211944, cows:"", zgunit:"", comments:"Recommended" },
-                { number:26, name:"Charity Betty", idno:"32421068", phone:"0703290653", subcounty:"Nandi Hills", ward:"chepkunyuk", village:"koimul", lat:0.090556, lon:35.197222, cows:"", zgunit:"", comments:"Recommended" },
-                { number:27, name:"Aseneth chemtai", idno:"22005975", phone:"0723148874", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"Mugoon", lat:0.186667, lon:35.265556, cows:"", zgunit:"", comments:"Recommended" },
-                { number:28, name:"Taito K.T.G.A secondary School", idno:"", phone:"", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"", lat:0.093556, lon:35.221306, cows:"", zgunit:"", comments:"Recommended" }
+                { number:1, name:"Pius Korir", idno:"22017876", phone:"0724399251", subcounty:"Chesumei", ward:"Chemundu/Kapngetuny", village:"Nukia", lat:0.259444, lon:35.066944, cows:"", comments:"Recommended" },
+                { number:2, name:"Noah Kipkemboi Talaam", idno:"11506602", phone:"0723490910", subcounty:"Chesumei", ward:"Kosirai", village:"Belekenya", lat:0.266389, lon:35.146667, cows:"", comments:"Recommended" },
+                { number:3, name:"Joseph Sunge", idno:"11847920", phone:"0725990875", subcounty:"Chesumei", ward:"Kosorai", village:"Tembeso", lat:0.334444, lon:35.140556, cows:"", comments:"Recommended" },
+                { number:4, name:"Elisha Seroney", idno:"27454160", phone:"0729168918", subcounty:"Chesumei", ward:"Kaptel kamaiywo", village:"Saniak", lat:0.335, lon:35.080556, cows:"", comments:"Recommended" },
+                { number:5, name:"Kaimosi Agricultural Training Centre", idno:"", phone:"", subcounty:"Emgwen", ward:"Kapkangani", village:"Cheptingon", lat:0.209722, lon:35.953333, cows:"", comments:"Recommended" },
+                { number:6, name:"Hosea Rono", idno:"1249803", phone:"0724590640", subcounty:"Emgwen", ward:"Kapsabet", village:"Mosobecho", lat:0.181111, lon:35.109722, cows:"", comments:"Recommended" },
+                { number:7, name:"Robert Meli", idno:"13363984", phone:"0711623466", subcounty:"Emgwen", ward:"Kilibwoni", village:"Kaibeiyo", lat:0.2525, lon:35.222778, cows:"", comments:"Recommended" },
+                { number:8, name:"Hosea Serem/Lilian", idno:"28132948", phone:"0726343508\\n0705905240", subcounty:"Mosop", ward:"Kabiyet", village:"Kabiyet", lat:0.402778, lon:35.088333, cows:"", comments:"Recommended" },
+                { number:9, name:"Emmanuel Keino", idno:"21459630", phone:"0710189290\\n0712580526", subcounty:"Mosop", ward:"Kabiyet", village:"Ndulele", lat:0.402778, lon:35.069444, cows:"", comments:"Recommended" },
+                { number:10, name:"Enock Sang", idno:"", phone:"0713116479", subcounty:"Mosop", ward:"Keplonik/ Sang’alo", village:"Kapkenyeloi", lat:0.394167, lon:35.049167, cows:"", comments:"Recommended" },
+                { number:11, name:"Donald Kipchirchir Tum", idno:"", phone:"0723383081\\n0764211870", subcounty:"Mosop", ward:"Kurgung", village:"Senetwet", lat:0.438056, lon:35.981944, cows:"", comments:"Recommended" },
+                { number:12, name:"Rose Tanui", idno:"11167100", phone:"0720848964", subcounty:"Mosop", ward:"Ndalat – Kabiemit", village:"Kaptagilis", lat:0.518611, lon:35.119722, cows:"", comments:"Recommended" },
+                { number:13, name:"Pamela Jemurgor", idno:"23363133", phone:"0717450178", subcounty:"Mosop", ward:"Sangalo Kebulonik", village:"Chepyagoris", lat:0.361667, lon:35.011667, cows:"", comments:"Recommended" },
+                { number:14, name:"Caroline Kiprop Meto", idno:"", phone:"0713887158", subcounty:"Mosop", ward:"Surungai", village:"Chepkoiyo", lat:0.452222, lon:34.990556, cows:"", comments:"Recommended" },
+                { number:15, name:"Alice Kiprono", idno:"21738196", phone:"0710407074", subcounty:"Nandi Hills", ward:"Chepkunyuk", village:"Kapchuria", lat:0.158333, lon:35.203333, cows:"", comments:"Recommended" },
+                { number:16, name:"Pius Tarus", idno:"10540723", phone:"0703488547", subcounty:"Nandi Hills", ward:"Chepkunyuk", village:"Kipkoror", lat:0.159722, lon:35.253333, cows:"", comments:"Recommended" },
+                { number:17, name:"John K. Tanui", idno:"21771244", phone:"0700008103", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"Cheptililik", lat:0.155833, lon:35.189444, cows:"", comments:"Recommended" },
+                { number:18, name:"Jane Mutai Chepketer", idno:"0773879", phone:"07186443660729310975", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"Kaptien", lat:0.155556, lon:35.195, cows:"", comments:"Recommended" },
+                { number:19, name:"Shadrack Bor", idno:"21099586", phone:"0708491101", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"Kipsebwo", lat:0.138611, lon:35.169444, cows:"", comments:"Recommended" },
+                { number:20, name:"Jacob Kipkemboi Mutai", idno:"13809235", phone:"0727760880", subcounty:"Nandi Hills", ward:"Ol’ Lessos", village:"Cheptingting", lat:0.189722, lon:35.2675, cows:"", comments:"Recommended" },
+                { number:21, name:"Elilzabeth Chepkorir", idno:"3291026", phone:"0718073595", subcounty:"Nandi Hills", ward:"OL’Lessos", village:"Cheptingting", lat:0.177778, lon:35.287222, cows:"", comments:"Recommended" },
+                { number:22, name:"Julius Kirui", idno:"22069481", phone:"07241488873", subcounty:"Nandi Hills", ward:"OL’Lessos", village:"Cheptingting", lat:0.190278, lon:35.265278, cows:"", comments:"Recommended" },
+                { number:23, name:"Alex Misoi", idno:"30410705", phone:"0725249931", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"Kipkimba", lat:0.075556, lon:35.196667, cows:"", comments:"Recommended" },
+                { number:24, name:"Joshua Too", idno:"33377738", phone:"0718061118", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"kaplelmet", lat:0.083333, lon:35.178889, cows:"", comments:"Recommended" },
+                { number:25, name:"Hellen chepkemboi", idno:"8590536", phone:"0720635858", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"Kapkemba", lat:0.073889, lon:35.211944, cows:"", comments:"Recommended" },
+                { number:26, name:"Charity Betty", idno:"32421068", phone:"0703290653", subcounty:"Nandi Hills", ward:"chepkunyuk", village:"koimul", lat:0.090556, lon:35.197222, cows:"", comments:"Recommended" },
+                { number:27, name:"Aseneth chemtai", idno:"22005975", phone:"0723148874", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"Mugoon", lat:0.186667, lon:35.265556, cows:"", comments:"Recommended" },
+                { number:28, name:"Taito K.T.G.A secondary School", idno:"", phone:"", subcounty:"Nandi Hills", ward:"Nandi Hills", village:"", lat:0.093556, lon:35.221306, cows:"", comments:"Recommended" }
             ],
             nyeri: [
-                { number:1, name:"Alex kaiya Ihwagi", idno:"571164", phone:"0722962273", subcounty:"Kiharo", ward:"Gikondi", village:"Rurie-Kahara", lat:-0.596944, lon:37.081667, cows:8, zgunit:"", comments:"Okay" },
-                { number:2, name:"Edward Kabucu Thuku", idno:"1862579", phone:"0710458405", subcounty:"Kiharo", ward:"Gikondi", village:"Mukango", lat:-0.603333, lon:37.085000, cows:3, zgunit:"", comments:"Okay" },
-                { number:3, name:"Jane Waigumo", idno:"5562417", phone:"0721635473", subcounty:"Kiharo", ward:"Gikondi", village:"Itanga", lat:-0.601111, lon:37.072222, cows:3, zgunit:"", comments:"Okay" },
-                { number:4, name:"Martin Irungu Macharia", idno:"22496409", phone:"0725908289", subcounty:"Karaba", ward:"Gikondi", village:"Karaba/ Ndindiruku", lat:-0.624167, lon:37.107778, cows:4, zgunit:"", comments:"Okay" },
-                { number:5, name:"Silas Kagichu", idno:"3375119", phone:"0722466313", subcounty:"Karecheni", ward:"Muk.Central", village:"Kiuu", lat:-0.596667, lon:37.150278, cows:6, zgunit:"", comments:"Okay" },
-                { number:6, name:"Mercy Wainanina", idno:"10786264", phone:"0743827010", subcounty:"Gaikundu", ward:"Muk.West", village:"Mbari ya Thiga", lat:-0.536389, lon:37.008611, cows:3, zgunit:"", comments:"Okay" },
-                { number:7, name:"Francis Mwangi", idno:"7039639", phone:"0724234145", subcounty:"Kaheho", ward:"Muk.West", village:"Kianyaga", lat:-0.562222, lon:36.997778, cows:3, zgunit:"", comments:"Okay" },
-                { number:8, name:"Agnes Muthoni", idno:"22936644", phone:"0727285353", subcounty:"Rutune", ward:"Rugi", village:"Kaini", lat:-0.633333, lon:37.138333, cows:4, zgunit:"", comments:"Okay" },
-                { number:9, name:"Samuel Ngacha", idno:"11129633", phone:"0712619909", subcounty:"Giathugu", ward:"Rugi", village:"Ngui", lat:-0.605556, lon:37.138889, cows:3, zgunit:"", comments:"Okay. To repair floor" },
-                { number:10, name:"Ann Macharia", idno:"8648733", phone:"0725722076", subcounty:"Kariariara", ward:"Rugi", village:"Gumba", lat:-0.606389, lon:37.139167, cows:2, zgunit:"", comments:"Okay" },
-                { number:11, name:"Joyce Muthoni Rubui", idno:"9857248", phone:"0721752604", subcounty:"Ititu", ward:"Rugi", village:"", lat:null, lon:null, cows:"", zgunit:"", comments:"Was missed due to miss direction. To be visited" },
-                { number:12, name:"Kihuti Secondary School", idno:"", phone:"", subcounty:"Mukurweini", ward:"Mukurweini central", village:"Kihuti", lat:null, lon:null, cows:3, zgunit:"", comments:"Okay" },
-                { number:13, name:"Mercy Mugure Mwangi", idno:"", phone:"0725600840", subcounty:"Mukurweini", ward:"Mukurweini central", village:"Ithanji", lat:-0.586389, lon:37.147778, cows:5, zgunit:"", comments:"Okay, to improve unit floor" },
-                { number:14, name:"Paul Weru", idno:"3200960", phone:"0721206588", subcounty:"Mukurweini", ward:"Mukurweini central", village:"Karecheni", lat:-0.593889, lon:37.149722, cows:3, zgunit:"", comments:"Okay" },
-                { number:15, name:"Esther Njeri", idno:"21859049", phone:"0716411783", subcounty:"Mukurweini", ward:"Rugi", village:"Mucunu", lat:-0.607500, lon:37.130000, cows:3, zgunit:"", comments:"Okay" },
-                { number:16, name:"Peter Mwai Kagwe", idno:"29302487", phone:"0700151362", subcounty:"Mukurweini", ward:"Rugi", village:"Mihuti", lat:-0.569444, lon:37.079167, cows:3, zgunit:"", comments:"Okay" },
-                { number:17, name:"Onesimus Thiong’o", idno:"", phone:"", subcounty:"Mukurweini", ward:"Rugi", village:"Muthuthine", lat:-0.603056, lon:37.141944, cows:4, zgunit:"", comments:"Okay" },
-                { number:18, name:"Gladys Muthoni", idno:"25092986", phone:"0725098145", subcounty:"Mukurweini", ward:"Mukurweini West", village:"Gaikundo", lat:-0.542500, lon:37.003333, cows:2, zgunit:"", comments:"Okay" },
-                { number:19, name:"Edward Nguuri", idno:"", phone:"0724171175", subcounty:"Mukurweini", ward:"Mukurweini Central", village:"Gitura", lat:-0.599167, lon:37.147500, cows:2, zgunit:"", comments:"Okay" },
-                { number:20, name:"Daniel Wainanina", idno:"", phone:"0728571316", subcounty:"Mukurweini", ward:"Mukurweini South", village:"Thoci", lat:-0.623611, lon:37.163611, cows:2, zgunit:"", comments:"Okay" },
-                { number:21, name:"Ephantus Githu", idno:"", phone:"0716701087", subcounty:"Mukurweini", ward:"Mukurweini Central", village:"Ithanji", lat:-0.586111, lon:37.147778, cows:2, zgunit:"", comments:"Okay" },
-                { number:22, name:"Paul Moche", idno:"", phone:"0722689163", subcounty:"Mukurweini", ward:"Mukurweini Central", village:"Jericho", lat:-0.611111, lon:37.156944, cows:3, zgunit:"", comments:"Space limiting" },
-                { number:23, name:"Mary Njichi", idno:"4326180", phone:"0727753114", subcounty:"Mukurweini", ward:"Mukurweini West", village:"Migiti", lat:null, lon:null, cows:3, zgunit:"", comments:"" },
-                { number:24, name:"John Maingi Muraguri", idno:"3463098", phone:"0727924106", subcounty:"Mukurweini", ward:"Rutune", village:"Kaini", lat:null, lon:null, cows:"", zgunit:"", comments:"Warothe" }
+                { number:1, name:"Alex kaiya Ihwagi", idno:"571164", phone:"0722962273", subcounty:"Kiharo", ward:"Gikondi", village:"Rurie-Kahara", lat:-0.596944, lon:37.081667, cows:8, comments:"Okay" },
+                { number:2, name:"Edward Kabucu Thuku", idno:"1862579", phone:"0710458405", subcounty:"Kiharo", ward:"Gikondi", village:"Mukango", lat:-0.603333, lon:37.085, cows:3, comments:"Okay" },
+                { number:3, name:"Jane Waigumo", idno:"5562417", phone:"0721635473", subcounty:"Kiharo", ward:"Gikondi", village:"Itanga", lat:-0.601111, lon:37.072222, cows:3, comments:"Okay" },
+                { number:4, name:"Martin Irungu Macharia", idno:"22496409", phone:"0725908289", subcounty:"Karaba", ward:"Gikondi", village:"Karaba/ Ndindiruku", lat:-0.624167, lon:37.107778, cows:4, comments:"Okay" },
+                { number:5, name:"Silas Kagichu", idno:"3375119", phone:"0722466313", subcounty:"Karecheni", ward:"Muk.Central", village:"Kiuu", lat:-0.596667, lon:37.150278, cows:6, comments:"Okay" },
+                { number:6, name:"Mercy Wainanina", idno:"10786264", phone:"0743827010", subcounty:"Gaikundu", ward:"Muk.West", village:"Mbari ya Thiga", lat:-0.536389, lon:37.008611, cows:3, comments:"Okay" },
+                { number:7, name:"Francis Mwangi", idno:"7039639", phone:"0724234145", subcounty:"Kaheho", ward:"Muk.West", village:"Kianyaga", lat:-0.562222, lon:36.997778, cows:3, comments:"Okay" },
+                { number:8, name:"Agnes Muthoni", idno:"22936644", phone:"0727285353", subcounty:"Rutune", ward:"Rugi", village:"Kaini", lat:-0.633333, lon:37.138333, cows:4, comments:"Okay" },
+                { number:9, name:"Samuel Ngacha", idno:"11129633", phone:"0712619909", subcounty:"Giathugu", ward:"Rugi", village:"Ngui", lat:-0.605556, lon:37.138889, cows:3, comments:"Okay. To repair floor" },
+                { number:10, name:"Ann Macharia", idno:"8648733", phone:"0725722076", subcounty:"Kariariara", ward:"Rugi", village:"Gumba", lat:-0.606389, lon:37.139167, cows:2, comments:"Okay" },
+                { number:11, name:"Joyce Muthoni Rubui", idno:"9857248", phone:"0721752604", subcounty:"Ititu", ward:"Rugi", village:"", lat:null, lon:null, cows:"", comments:"Was missed due to miss direction. To be visited" },
+                { number:12, name:"Kihuti Secondary School", idno:"", phone:"", subcounty:"Mukurweini", ward:"Mukurweini central", village:"Kihuti", lat:null, lon:null, cows:3, comments:"Okay" },
+                { number:13, name:"Mercy Mugure Mwangi", idno:"", phone:"0725600840", subcounty:"Mukurweini", ward:"Mukurweini central", village:"Ithanji", lat:-0.586389, lon:37.147778, cows:5, comments:"Okay, to improve unit floor" },
+                { number:14, name:"Paul Weru", idno:"3200960", phone:"0721206588", subcounty:"Mukurweini", ward:"Mukurweini central", village:"Karecheni", lat:-0.593889, lon:37.149722, cows:3, comments:"Okay" },
+                { number:15, name:"Esther Njeri", idno:"21859049", phone:"0716411783", subcounty:"Mukurweini", ward:"Rugi", village:"Mucunu", lat:-0.6075, lon:37.13, cows:3, comments:"Okay" },
+                { number:16, name:"Peter Mwai Kagwe", idno:"29302487", phone:"0700151362", subcounty:"Mukurweini", ward:"Rugi", village:"Mihuti", lat:-0.569444, lon:37.079167, cows:3, comments:"Okay" },
+                { number:17, name:"Onesimus Thiong’o", idno:"", phone:"", subcounty:"Mukurweini", ward:"Rugi", village:"Muthuthine", lat:-0.603056, lon:37.141944, cows:4, comments:"Okay" },
+                { number:18, name:"Gladys Muthoni", idno:"25092986", phone:"0725098145", subcounty:"Mukurweini", ward:"Mukurweini West", village:"Gaikundo", lat:-0.5425, lon:37.003333, cows:2, comments:"Okay" },
+                { number:19, name:"Edward Nguuri", idno:"", phone:"0724171175", subcounty:"Mukurweini", ward:"Mukurweini Central", village:"Gitura", lat:-0.599167, lon:37.1475, cows:2, comments:"Okay" },
+                { number:20, name:"Daniel Wainanina", idno:"", phone:"0728571316", subcounty:"Mukurweini", ward:"Mukurweini South", village:"Thoci", lat:-0.623611, lon:37.163611, cows:2, comments:"Okay" },
+                { number:21, name:"Ephantus Githu", idno:"", phone:"0716701087", subcounty:"Mukurweini", ward:"Mukurweini Central", village:"Ithanji", lat:-0.586111, lon:37.147778, cows:2, comments:"Okay" },
+                { number:22, name:"Paul Moche", idno:"", phone:"0722689163", subcounty:"Mukurweini", ward:"Mukurweini Central", village:"Jericho", lat:-0.611111, lon:37.156944, cows:3, comments:"Space limiting" },
+                { number:23, name:"Mary Njichi", idno:"4326180", phone:"0727753114", subcounty:"Mukurweini", ward:"Mukurweini West", village:"Migiti", lat:null, lon:null, cows:3, comments:"" },
+                { number:24, name:"John Maingi Muraguri", idno:"3463098", phone:"0727924106", subcounty:"Mukurweini", ward:"Rutune", village:"Kaini", lat:null, lon:null, cows:"", comments:"Warothe" },
+                { number:25, name:"John Mathenge Muriuki", idno:"10134188", phone:"0721544958", subcounty:"Mathira East", ward:"Iria Ini", village:"Itundo", lat:-0.421944, lon:37.180556, cows:5, comments:"Construction Completed" },
+                { number:26, name:"Antony Mugo Gatungu", idno:"3212593", phone:"0721484709", subcounty:"Mathira East", ward:"Iria Ini", village:"Itundo", lat:-0.42, lon:37.181111, cows:"", comments:"Construction Completed" },
+                { number:27, name:"Patrick Mwai Muriithi", idno:"0789133", phone:"0722285970", subcounty:"Mathira East", ward:"Iria Ini", village:"Itundo", lat:-0.426111, lon:37.179722, cows:"", comments:"Construction Completed" },
+                { number:28, name:"James Mwangi Mureithi", idno:"5547695", phone:"0727904510", subcounty:"Mathira East", ward:"Karatina", village:"Kihuro", lat:-0.425278, lon:37.108889, cows:"", comments:"Construction Completed" },
+                { number:29, name:"Muchangi Warungu", idno:"3211981", phone:"0722785391", subcounty:"Mathira East", ward:"Iria Ini", village:"Gatondo", lat:-0.437222, lon:34.165, cows:"", comments:"Construction Completed" },
+                { number:30, name:"Moses Mureithi Wanjohi", idno:"9671658", phone:"0721482416", subcounty:"Mathira East", ward:"Iria Ini", village:"Upper Gikororo", lat:-0.452778, lon:34.168056, cows:"", comments:"Construction Completed" },
+                { number:31, name:"Lucy Wambui Kiambuto", idno:"8240045", phone:"0722441182", subcounty:"Nyeri Central", ward:"Gatitu", village:"Gatitu", lat:-0.460556, lon:34.003333, cows:4, comments:"Construction Completed" },
+                { number:32, name:"James Waweru", idno:"22724414", phone:"0721798323", subcounty:"Tetu", ward:"Wamagana", village:"Kaiguri", lat:-0.501944, lon:36.973889, cows:3, comments:"Construction Completed" },
+                { number:33, name:"John Wachira Kirungo", idno:"7878935", phone:"0721355825", subcounty:"Tetu", ward:"Aguthi Gaaki", village:"Gondo", lat:-0.506667, lon:36.988056, cows:2, comments:"Construction Completed" },
+                { number:34, name:"Will Jims Kariuki", idno:"13538948", phone:"0721104929", subcounty:"Tetu", ward:"Wamagana", village:"Kaiguri", lat:-0.505556, lon:36.973333, cows:2, comments:"Construction Completed" },
+                { number:35, name:"Grishon Wachira", idno:"3399893", phone:"0721252758", subcounty:"Tetu", ward:"Wamagana", village:"Kaiguri", lat:-0.508333, lon:36.976111, cows:4, comments:"Construction Completed" },
+                { number:36, name:"Robert Theuri Gachiri", idno:"27885282", phone:"0711599724", subcounty:"Tetu", ward:"Wamagana", village:"Gura", lat:-0.508611, lon:36.972222, cows:3, comments:"Construction Completed" },
+                { number:37, name:"Anne Wanjiku", idno:"30522555", phone:"0728372296", subcounty:"Tetu", ward:"Wamagana", village:"Nduiga", lat:-0.4975, lon:36.977778, cows:3, comments:"Construction Completed" },
+                { number:38, name:"Nancy Njeri Murage", idno:"5488280", phone:"0723518791", subcounty:"Tetu", ward:"Aguthi Gaaki", village:"Kiawathonjo", lat:-0.481667, lon:36.981944, cows:4, comments:"Construction Completed" },
+                { number:39, name:"Mary Wanjiku Ndiritu", idno:"23234740", phone:"0726123847", subcounty:"Tetu", ward:"Aguthi Gaaki", village:"Kiriko", lat:-0.491667, lon:37.005278, cows:3, comments:"Construction Completed" },
+                { number:40, name:"James Gakuru", idno:"160372540", phone:"0726249055", subcounty:"Tetu", ward:"Aguthi Gaaki", village:"Mericho", lat:-0.489167, lon:36.986389, cows:6, comments:"Construction Completed" },
+                { number:41, name:"Paul Mwaganu", idno:"24631300", phone:"0729154056", subcounty:"Tetu", ward:"Aguthi Gaaki", village:"Mericho", lat:-0.487778, lon:36.986944, cows:"", comments:"Construction Completed" },
+                { number:42, name:"Virginia Nyawira Kahu", idno:"3398621", phone:"0725305811", subcounty:"Tetu", ward:"Aguthi Gaaki", village:"Heheti", lat:-0.476944, lon:37.011944, cows:3, comments:"Construction Completed" },
+                { number:43, name:"Jenyess Wangui Karitu", idno:"1827138", phone:"0740197563/0736315236", subcounty:"Tetu", ward:"Aguthi Gaaki", village:"Kiangaca Gicira", lat:-0.48, lon:37.021389, cows:2, comments:"Construction Completed" },
+                { number:44, name:"Cecilia Nyokabi Wachiuri", idno:"1826477", phone:"0721817320", subcounty:"Tetu", ward:"Aguthi Gaaki", village:"Gicira", lat:-0.484167, lon:37.005833, cows:3, comments:"Construction Completed" },
+                { number:45, name:"Joseph Wanjohi", idno:"0312321", phone:"0726604143", subcounty:"Tetu", ward:"Aguthi Gaaki", village:"Gititu", lat:-0.506389, lon:37.061667, cows:2, comments:"Construction Completed" },
+                { number:46, name:"John Kiboi Ngunjiri", idno:"6055746", phone:"0721987242", subcounty:"Tetu", ward:"Aguthi Gaaki", village:"Gititu", lat:-0.501944, lon:37.021667, cows:5, comments:"Construction Completed" },
+                { number:47, name:"Ezekiel Karonji Wambugu", idno:"27600022", phone:"0728294741", subcounty:"Tetu", ward:"Wamagana", village:"Makutano", lat:-0.497222, lon:36.963056, cows:2, comments:"Construction Completed" },
+                { number:48, name:"Veronica Wangui Waithaka", idno:"3396247", phone:"0722296985", subcounty:"Tetu", ward:"Wamagana", village:"Gachatha", lat:-0.496389, lon:36.947222, cows:2, comments:"Construction Completed" },
+                { number:49, name:"Christopher Weru", idno:"", phone:"0724610391", subcounty:"Tetu", ward:"Wamagana", village:"Kiawangoru", lat:-0.483056, lon:36.879722, cows:4, comments:"Construction Completed" },
+                { number:50, name:"Eunice Wachira", idno:"21961084", phone:"0723901454", subcounty:"Tetu", ward:"Wamagana", village:"Iriaini", lat:-0.480833, lon:36.880833, cows:5, comments:"Construction Completed" },
+                { number:51, name:"Samwel Githaiga", idno:"10119540", phone:"0723513114", subcounty:"Tetu", ward:"Dedan Kimathi", village:"Ihari", lat:-0.4675, lon:36.887222, cows:4, comments:"Construction Completed" },
+                { number:52, name:"Ephraim Kimathi Gitonga", idno:"31596050", phone:"0795585126", subcounty:"Tetu", ward:"Dedan Kimathi", village:"Gatawa", lat:-0.450833, lon:36.846944, cows:3, comments:"Construction Completed" },
+                { number:53, name:"Stanley Rukwaro", idno:"6831883", phone:"0722798234", subcounty:"Tetu", ward:"Dedan Kimathi", village:"Kirurumi", lat:-0.440278, lon:36.858611, cows:5, comments:"Construction Completed" },
+                { number:54, name:"David Ndirangu mbutu", idno:"23221937", phone:"0724687508", subcounty:"Tetu", ward:"Wamagana", village:"Kiawangoru", lat:-0.484722, lon:36.971389, cows:3, comments:"Construction Completed" },
+                { number:55, name:"Juliah Wanja Ndung’u", idno:"9075151", phone:"0721550554", subcounty:"Kieni West", ward:"Gatarakwa", village:"kamiyanda", lat:-0.31446, lon:36.74981, cows:5, comments:"Construction Completed" },
+                { number:56, name:"Peter Thirikwa kingori", idno:"3204706", phone:"0724936311 / 0720321467", subcounty:"Kieni West", ward:"Gatarakwa", village:"Watuka", lat:-0.309444, lon:36.805833, cows:3, comments:"Construction Completed" },
+                { number:57, name:"Joseph Maina Njuki", idno:"26224776", phone:"0717353512", subcounty:"Kieni West", ward:"Mugunda", village:"Githura", lat:-0.216944, lon:36.725278, cows:3, comments:"Construction Completed" },
+                { number:58, name:"Stephen Warutumo Kibicho", idno:"22585810", phone:"0728552940", subcounty:"Kieni West", ward:"Mugunda", village:"Kaheho", lat:-0.225, lon:36.744167, cows:2, comments:"Construction Completed" },
+                { number:59, name:"Dionysious K. Kingori", idno:"0581208", phone:"0721889396", subcounty:"Kieni West", ward:"Mugunda", village:"Kiboya", lat:-0.225, lon:37.773333, cows:2, comments:"Construction Completed" },
+                { number:60, name:"Joseph Waiyobo", idno:"3220054", phone:"0720689538", subcounty:"Kieni West", ward:"Mugunda", village:"Nyamindi", lat:-0.221389, lon:36.746111, cows:3, comments:"Construction Completed" },
+                { number:61, name:"Stephen Njoroge Kibuthu", idno:"11318899", phone:"0720770609", subcounty:"Kieni West", ward:"Mugunda", village:"Nyamindi", lat:-0.219722, lon:36.738333, cows:3, comments:"Construction Completed" },
+                { number:62, name:"Peter Wanjohi Ndungu", idno:"21918209", phone:"0736544343", subcounty:"Kieni West", ward:"Gatarakwa", village:"Watuka", lat:-0.304167, lon:36.753611, cows:3, comments:"Construction Completed" },
+                { number:63, name:"Peterson Thuku Githua", idno:"9322232", phone:"0786671180", subcounty:"Kieni West", ward:"Gatarakwa", village:"Gituchu", lat:-0.293889, lon:36.77, cows:3, comments:"Construction Completed" },
+                { number:64, name:"Tumaini / Huruma Children Home", idno:"", phone:"0728166195", subcounty:"Nyeri Town", ward:"Wamagana", village:"Ruringo", lat:-0.441389, lon:36.925639, cows:3, comments:"Construction Completed" },
+                { number:65, name:"John Macharia Kamanu", idno:"7476495", phone:"+254 723 766148", subcounty:"Kieni East", ward:"Naromoru", village:"Kambi", lat:-0.167222, lon:37.068056, cows:4, comments:"Construction Completed" },
+                { number:66, name:"Simon Mwangi", idno:"3186658", phone:"0725381736", subcounty:"Kieni East", ward:"Naromoru Kiamathaga", village:"Mwicuiri-Kiamathaga", lat:-0.159722, lon:37.078056, cows:2, comments:"Construction Completed" },
+                { number:67, name:"Peter Kingara Mobile", idno:"11629724", phone:"0721416319", subcounty:"Kieni East", ward:"Naromoru Kiamathaga", village:"Gatune- Kiamathaga", lat:-0.15, lon:36.067778, cows:2, comments:"Construction Completed" },
+                { number:68, name:"Lucy Mathenge", idno:"5563391", phone:"0723952527", subcounty:"Kieni East", ward:"Naromoru Kiamathaga", village:"Njuguine", lat:-0.192778, lon:37.112222, cows:3, comments:"Construction Completed" },
+                { number:69, name:"Wilson Kiama Mundia", idno:"6830432", phone:"0720944817", subcounty:"Nyeri", ward:"Ruringu", village:"Ithenguri", lat:-0.461389, lon:36.97275, cows:2, comments:"Construction Completed" },
+                { number:70, name:"Richard Ndegwa Ndiritu", idno:"22692540", phone:"0721759762", subcounty:"Kieni West", ward:"Mugunda", village:"Kiambogo / Hathenge", lat:-0.213889, lon:36.708611, cows:4, comments:"Access problem for construction materials" },
+                { number:71, name:"Isack Mwenda Kinyua", idno:"22186756", phone:"0720015971", subcounty:"Mathira East", ward:"Iria Ini", village:"Itundu", lat:-0.413333, lon:37.182778, cows:"", comments:"The zero-grazing unit a bit far from the kitchen. Space management maybe an issue. To close to the next beneficiary. Replaced." },
+                { number:72, name:"John Njaaga Mugo", idno:"0811004", phone:"0722265179\\n0751858455", subcounty:"Mathira East", ward:"Konyu", village:"Peter Ciira", lat:-0.501389, lon:37.126111, cows:"", comments:"Unit requires improvements. Replaced" },
+                { number:73, name:"Richard Karuiyo Gathanga", idno:"7039503", phone:"0722727176", subcounty:"Kieni West", ward:"Endarasha- Mwiyogo", village:"Mburu", lat:-0.28344, lon:36.9227, cows:6, comments:"Not interested." },
+                { number:74, name:"Peris Wanjugu", idno:"7476834", phone:"0727136424", subcounty:"Kieni West", ward:"Gatarakwa", village:"Manoro", lat:-0.29373, lon:36.76142, cows:3, comments:"Wants to install a prefabricated type. Rejected the masonry type. Replaced" },
+                { number:75, name:"Felisia Muthanji Muthoga", idno:"3233718", phone:"0726811767", subcounty:"Kieni West", ward:"Gatarakwa (Watuka Kiria)", village:"Kiria", lat:-0.27025, lon:36.760778, cows:3, comments:"Had only one cow. Replaced" },
+                { number:76, name:"John Muriuki", idno:"", phone:"0723781441", subcounty:"Kieni West", ward:"Mugunda", village:"", lat:-0.170694, lon:36.843417, cows:0, comments:"Difficult to get at home. Never visited. Replaced" },
+                { number:77, name:"Isack Mwenda Kinyua", idno:"22186756", phone:"0720015971", subcounty:"Mathira East", ward:"Iria Ini", village:"Itundu", lat:-0.413333, lon:37.182778, cows:"", comments:"Replaced. Too close to two other beneficiaries. Site not ideal" },
+                { number:78, name:"John Njaaga Mugo", idno:"0811004", phone:"0722265179\\n0751858455", subcounty:"Mathira East", ward:"Konyu", village:"Peter Ciira", lat:-0.501389, lon:37.126111, cows:"", comments:"The Zero Gracing unit required restructuring. Plan not in the near future. Replaced" },
+                { number:79, name:"Kiandu Sec. School", idno:"", phone:"", subcounty:"Tetu", ward:"Wamagana", village:"Kiandu", lat:-0.489444, lon:36.968889, cows:9, comments:"Lack of commitment on the school side after the transfer of the previous Principal. Replaced" },
+                { number:80, name:"Nancy Kaigwa", idno:"1892002", phone:"0722609099", subcounty:"Tetu", ward:"Wamagana", village:"Kiandu", lat:-0.486111, lon:36.968889, cows:5, comments:"Had installed a biogas plant. Replaced" },
+                { number:81, name:"Charles Githu Mwaura", idno:"0984801", phone:"0724005246", subcounty:"Tetu", ward:"Aguthi Gaaki", village:"Ithekahuno", lat:-0.469444, lon:36.999722, cows:2, comments:"One cow. Does not stay in the home. Replaced" },
+                { number:82, name:"Hellen Mukami Kamau", idno:"1825609", phone:"0722760426", subcounty:"Tetu", ward:"Aguthi Gaaki", village:"Gicira", lat:-0.489167, lon:37.010556, cows:4, comments:"Had installed a biogas plant. Replaced" },
+                { number:83, name:"Alex Kiaya Ihwagi", idno:"5711164", phone:"0722962273", subcounty:"Mukurweini", ward:"Gikondi", village:"Rurie-Kahara", lat:-0.596944, lon:37.081667, cows:"", comments:"Construction completed and cooking" },
+                { number:84, name:"Edward Kabucu Thuku", idno:"1862579", phone:"0710458405", subcounty:"Kaharo", ward:"Gikondi", village:"Mukango", lat:-0.603333, lon:37.085, cows:"", comments:"Construction completed and feeding underway" },
+                { number:85, name:"Jane Waigumo", idno:"5562417", phone:"0721635473", subcounty:"Kiharo", ward:"Gikondi", village:"Itanga", lat:-0.601111, lon:37.072222, cows:"", comments:"Construction completed and cooking" },
+                { number:86, name:"Silas Kagichu", idno:"3375119", phone:"0722466313", subcounty:"Mukurweini", ward:"Muk.Central", village:"Kiuu", lat:-0.596667, lon:37.150278, cows:"", comments:"Construction completed and cooking" },
+                { number:87, name:"Mercy Wainanina", idno:"10786264", phone:"0743827010", subcounty:"Gaikundu", ward:"Muk.West", village:"Mbari ya Thiga", lat:-0.536389, lon:37.008611, cows:"", comments:"Construction completed and cooking" },
+                { number:88, name:"Francis Mwangi", idno:"7039639", phone:"0724234145", subcounty:"Kaheho", ward:"Muk.West", village:"Kianyaga", lat:-0.562222, lon:36.997778, cows:"", comments:"Construction completed and cooking" },
+                { number:89, name:"Agnes Muthoni", idno:"22936644", phone:"0727285353", subcounty:"Rutune", ward:"Rugi", village:"Kaini", lat:-0.633333, lon:37.138333, cows:"", comments:"Construction completed and cooking. To reconstruct expansion covers." },
+                { number:90, name:"Samuel Ngacha", idno:"11129633", phone:"0712619909", subcounty:"Mukurweini", ward:"Rugi", village:"Ngui", lat:-0.605556, lon:37.138889, cows:"", comments:"Construction completed and cooking. Leakages reported" },
+                { number:91, name:"Joyce Muthoni Rubui", idno:"9857248", phone:"0721752604", subcounty:"Ititu", ward:"Rugi", village:"Kinuri", lat:-0.6075, lon:37.1, cows:"", comments:"Construction completed and cooking." },
+                { number:92, name:"Kihuti Secondary School", idno:"", phone:"0721242995 (Mrs Mwangi)", subcounty:"Mukurweini", ward:"Mukurweini central", village:"Kihuti", lat:-0.555833, lon:37.114167, cows:"", comments:"Construction completed and working" },
+                { number:93, name:"Mercy Mugure Mwangi", idno:"3614609", phone:"0725600840", subcounty:"Mukurweini", ward:"Mukurweini central", village:"Ithanji", lat:-0.586389, lon:37.147778, cows:"", comments:"Construction completed and cooking" },
+                { number:94, name:"Paul Weru", idno:"3200960", phone:"0721206588", subcounty:"Mukurweini", ward:"Mukurweini central", village:"Karecheni", lat:-0.593889, lon:37.149722, cows:"", comments:"Construction completed and cooking. Leakages reported" },
+                { number:95, name:"Esther Njeri", idno:"21859049", phone:"0716411783", subcounty:"Mukurweini", ward:"Rugi", village:"Mucunu", lat:-0.6075, lon:37.13, cows:"", comments:"Construction completed and cooking" },
+                { number:96, name:"Peter Mwai Kagwe", idno:"29302487", phone:"0700151362", subcounty:"Mukurweini", ward:"Rugi", village:"Mihuti", lat:-0.569444, lon:37.079167, cows:"", comments:"Construction completed and cooking" },
+                { number:97, name:"Onesimus Thiong’o", idno:"29582138", phone:"0729175090", subcounty:"Mukurweini", ward:"Rugi", village:"Muthuthine", lat:-0.603056, lon:37.141944, cows:"", comments:"Construction completed and cooking" },
+                { number:98, name:"Gladys Muthoni", idno:"25092986", phone:"0725098145", subcounty:"Mukurweini", ward:"Mukurweini West", village:"Gaikundo", lat:-0.5425, lon:37.003333, cows:"", comments:"Construction completed and cooking" },
+                { number:99, name:"Edward Nguuri", idno:"22815555", phone:"0724171175", subcounty:"Mukurweini", ward:"Mukurweini Central", village:"Gitura", lat:-0.599167, lon:37.1475, cows:"", comments:"Construction completed and cooking" },
+                { number:100, name:"Daniel Wainanina", idno:"8452063", phone:"0728571316", subcounty:"Mukurweini", ward:"Mukurweini South", village:"Rugi", lat:-0.623611, lon:37.163611, cows:"", comments:"Construction completed and cooking. Leakages reported around water trap area." },
+                { number:101, name:"Paul Moche", idno:"5507230", phone:"0722689163", subcounty:"Mukurweini", ward:"Mukurweini Central", village:"Gatano", lat:-0.611111, lon:37.156944, cows:"", comments:"Construction completed and cooking" },
+                { number:102, name:"Mary Njichi", idno:"4326180", phone:"0727753114", subcounty:"Mukurweini", ward:"Mukurweini West", village:"Migiti", lat:-0.559167, lon:37.005, cows:"", comments:"Construction completed and cooking" },
+                { number:103, name:"John Maingi Muraguri", idno:"3463098", phone:"0727924106", subcounty:"Mukurweini", ward:"Rutune", village:"Kaini-njoguini", lat:-0.627222, lon:37.1425, cows:"", comments:"Construction completed and cooking" },
+                { number:104, name:"Daniel Kamau Mwangi", idno:"20933930", phone:"0717076607\\n0726565542", subcounty:"Kiharo", ward:"Gikondi", village:"Kaharu / Gakira", lat:-0.598889, lon:37.086111, cows:"", comments:"Construction completed and cooking. Leakages reported" },
+                { number:105, name:"Raphael Kiruthu Mbuthia", idno:"7028917", phone:"0799656714", subcounty:"Mukurweini", ward:"Mukurweini West", village:"Kiawaita", lat:-0.538611, lon:37.049722, cows:"", comments:"Construction works completed and cooking" }
+            ],
+            kirinyaga: [
+                { number:1, name:"Rosemary Ngare Thiguku", idno:"2916236", phone:"0714952267", subcounty:"Gichuku", ward:"Gachege", village:"Kiang’ombe", lat:-0.466667, lon:37.304167, cows:"", comments:"Construction Completed" },
+                { number:2, name:"Margret Wangeci Mututo", idno:"2892973", phone:"0725474972\\n0721873562", subcounty:"Gichuku", ward:"Gashege", village:"Rwang’ondu", lat:-0.482778, lon:37.304444, cows:"", comments:"Construction Completed" },
+                { number:3, name:"Peter Muchiri Ngacha", idno:"9719441", phone:"0721360078\\n0724065592", subcounty:"Kirinyaga central", ward:"Kerugoya", village:"Ndimi", lat:-0.518889, lon:37.279722, cows:"", comments:"Construction Completed" },
+                { number:4, name:"Festus Kinyua Nyamu", idno:"5772636", phone:"0721364509", subcounty:"Kirinyaga east", ward:"Kabare", village:"Mutige Ngenya", lat:-0.467778, lon:37.320278, cows:"", comments:"Construction Completed" },
+                { number:5, name:"James Kariuki", idno:"23623448", phone:"0724107869", subcounty:"Kirinyaga east", ward:"Karumandi", village:"Gaturi", lat:-0.446667, lon:37.245833, cows:"", comments:"Construction Completed" },
+                { number:6, name:"James Gitari Ndambiri", idno:"23482223", phone:"0711247092", subcounty:"Kirinyaga east", ward:"Karumandi", village:"Mburi", lat:-0.450278, lon:37.365, cows:"", comments:"Construction Completed" },
+                { number:7, name:"Peter Njeru Kiura", idno:"20624647", phone:"0720675030", subcounty:"Kirinyaga east", ward:"Karumandi", village:"Thumaita", lat:-0.446667, lon:37.245833, cows:"", comments:"Construction Completed" },
+                { number:8, name:"Cecilia Wambui Kiura", idno:"1212255", phone:"0723720416", subcounty:"Kirinyaga East", ward:"Mbaragwi", village:"Kagaa", lat:-0.499722, lon:37.357778, cows:"", comments:"Construction Completed" },
+                { number:9, name:"Joseph Njogu Muchiri", idno:"20377360", phone:"0701593328", subcounty:"Kirinyaga east", ward:"Mikarara", village:"Ndunge", lat:-0.446667, lon:37.245833, cows:"", comments:"Construction Completed" },
+                { number:10, name:"Ann Kathogo Gichobi", idno:"0806532", phone:"0725212876", subcounty:"Kirinyaga East", ward:"Njukiine", village:"Gacatha", lat:-0.545278, lon:37.383056, cows:"", comments:"Construction Completed" },
+                { number:11, name:"Kenneth Gitari Ndamberi", idno:"21808399", phone:"0723492029/\\n0712717588", subcounty:"Kirinyaga East", ward:"Njukiine", village:"Kiberenge", lat:-0.536111, lon:37.378889, cows:"", comments:"Construction Completed" },
+                { number:12, name:"Sarah Ruguru Murage", idno:"22552640", phone:"0720870542", subcounty:"Kirinyaga East", ward:"Njukiini", village:"Getito-ini", lat:-0.510556, lon:37.388611, cows:"", comments:"Construction Completed" },
+                { number:13, name:"Naomi Wanjiru Gichobi", idno:"30770780", phone:"0710488594", subcounty:"Kirinyaga East", ward:"Njukiini", village:"Mburi", lat:-0.518611, lon:37.368611, cows:"", comments:"Construction Completed" },
+                { number:14, name:"Mary Wanja Mwaniki", idno:"11818676", phone:"0728475255", subcounty:"Kirinyaga East", ward:"Njukiini", village:"Mburi", lat:-0.521389, lon:37.370278, cows:"", comments:"Construction Completed" },
+                { number:15, name:"Teresia Gathoni Mwai", idno:"11698057", phone:"0725487425", subcounty:"Kirinyaga West", ward:"Kiine", village:"Gathuthi", lat:-0.480556, lon:37.195, cows:"", comments:"Construction Completed" },
+                { number:16, name:"Antony Kinywa", idno:"1150281", phone:"0723344901", subcounty:"Kirinyaga west", ward:"Kiine", village:"Mathiya", lat:-0.455833, lon:37.181111, cows:"", comments:"Construction Completed" },
+                { number:17, name:"Patrick Gikandi Nyaga", idno:"21589915", phone:"0712773242", subcounty:"Kirinyaga west", ward:"Kiine", village:"Ruiru", lat:-0.480278, lon:37.186389, cows:"", comments:"Construction Completed" },
+                { number:18, name:"Willy Ngondi", idno:"7236962", phone:"0722432184\\n0720849843", subcounty:"Mwea East", ward:"Nyangati", village:"Kamiigua (near kutus", lat:-0.562222, lon:37.343333, cows:"", comments:"Construction Completed" },
+                { number:19, name:"John Murimi", idno:"23102705", phone:"0721898175\\n0707586905", subcounty:"Mwea East", ward:"Nyangati", village:"Kitheru", lat:-0.564444, lon:37.349167, cows:"", comments:"Construction Completed" },
+                { number:20, name:"Florencr Wanjiru Githinji", idno:"10640726", phone:"0729225168", subcounty:"Kirinyaga East", ward:"Njukiini", village:"Mururi", lat:-0.554722, lon:37.3775, cows:"", comments:"Construction Completed" },
+                { number:21, name:"Dickson Kinyua Muriuki", idno:"22935945", phone:"0721436324", subcounty:"Kirinyaga East", ward:"Njukiini", village:"Githaraini", lat:-0.528333, lon:37.42, cows:"", comments:"Construction Completed" },
+                { number:22, name:"Pauline Ndambiri", idno:"20020119", phone:"0723102720     \\n0721819840", subcounty:"Kirinyaga East", ward:"Njukiini", village:"Kiambuu", lat:-0.497778, lon:37.368333, cows:"", comments:"Construction Completed" },
+                { number:23, name:"Edward Mwendia", idno:"10160988", phone:"0723546459\\n0725591669", subcounty:"Gichuku", ward:"Mikarara", village:"Kanjarara (kutus town)", lat:-0.561111, lon:37.331389, cows:"", comments:"Construction Completed" },
+                { number:24, name:"Meshack Muchira Gachoki", idno:"3403654", phone:"0722352757", subcounty:"Kirinyaga Central", ward:"Inoi", village:"Karaini (next to Kamurwana hills academy", lat:-0.449722, lon:37.2575, cows:"", comments:"Construction Completed" },
+                { number:25, name:"Stephen Murioki Ngari", idno:"11599237", phone:"0721249724", subcounty:"Kirinyaga West", ward:"Kiine", village:"Kiangai", lat:-0.471111, lon:37.1775, cows:"", comments:"Construction Completed" },
+                { number:26, name:"James Wachira Murimi", idno:"24018837", phone:"0729723767", subcounty:"Kirinyaga West", ward:"Kiine", village:"Kiangai", lat:-0.490556, lon:37.188889, cows:"", comments:"Had one cow and a calf. Unit require improvement" },
+                { number:27, name:"Catherine Wambui", idno:"25017526", phone:"0712603945", subcounty:"Kirinyaga East", ward:"Njukiini", village:"Gacatha", lat:-0.538611, lon:37.374444, cows:"", comments:"Had one cow and a calf" },
+                { number:28, name:"Newton Kariimi", idno:"21695246", phone:"0721615326", subcounty:"Mwea West", ward:"Kiangai", village:"Kagumo-ini(Kombuini)", lat:-0.596389, lon:37.28, cows:"", comments:"Not interested" },
+                { number:29, name:"Nickson Gichoya Mugo", idno:"22900346", phone:"0720272411", subcounty:"Kirinyaga Central", ward:"Inoi", village:"Kiangema", lat:-0.446667, lon:37.3625, cows:"", comments:"Materials access was a challenges" },
+                { number:30, name:"Samuel Githaka Muriithi", idno:"13773189", phone:"0723560777", subcounty:"Kirinyaga Central", ward:"Kerugoya", village:"Kangari", lat:-0.514167, lon:37.2875, cows:"", comments:"Had only one cow" },
+                { number:31, name:"Andrew Muriithi Muriuki", idno:"6649425", phone:"0723250552", subcounty:"Mwea", ward:"Nyangatu", village:"Kirimara", lat:-0.589722, lon:37.361667, cows:"", comments:"Identified during the selection for replacements.\\nTo be considered in the next lot" }
+            ],
+            kiambu: [
+                { number:1, name:"Albert Ndirangu", idno:"7985238", phone:"072156998\\n077985238", subcounty:"Gatundu", ward:"Ndarugu", village:"Munyuiri", lat:-0.9375, lon:36.778056, cows:4, comments:"Recommended" },
+                { number:2, name:"Michael Gathinji", idno:"20683287", phone:"724723887", subcounty:"Gatundu", ward:"Ndarugu", village:"", lat:-0.918056, lon:36.783611, cows:3, comments:"Recommended" },
+                { number:3, name:"Jennifer Wambui", idno:"3111202", phone:"727049395", subcounty:"Gatundu South", ward:"Kiamwangi", village:"", lat:-1.043333, lon:36.885833, cows:8, comments:"Recommended" },
+                { number:4, name:"Antony Mwangi", idno:"10140439", phone:"0727172458", subcounty:"Gatundu South", ward:"Kiamwangi", village:"Kagio", lat:0.006389, lon:36.861944, cows:4, comments:"Recommended" },
+                { number:5, name:"Lucy Kinyanjui", idno:"11148577", phone:"0722842402", subcounty:"Gatundu South", ward:"Kiamwangi", village:"Karambu", lat:null, lon:null, cows:"", comments:"" },
+                { number:6, name:"Francis Mwaura", idno:"5703919", phone:"717856923", subcounty:"Gatundu South", ward:"Ndarugu", village:"", lat:-0.963333, lon:36.858333, cows:2, comments:"Recommended Vulnerable/Old" },
+                { number:7, name:"Hellen Wahuini", idno:"23848919", phone:"704145126", subcounty:"Gatundu South", ward:"Ndarugu", village:"", lat:-0.953333, lon:36.836111, cows:2, comments:"Recommended" },
+                { number:8, name:"Nancy Nduta", idno:"3589031", phone:"0721521840", subcounty:"Gatundu South", ward:"Ng’enda", village:"Gikure", lat:-0.9725, lon:36.844722, cows:9, comments:"Recommended" },
+                { number:9, name:"John Kamau", idno:"11481367", phone:"0703809559", subcounty:"Gatungu South", ward:"Ndarugu", village:"Kingoi", lat:-0.934167, lon:36.813889, cows:3, comments:"Recommended" },
+                { number:10, name:"Paul Kimani", idno:"13440398", phone:"0705343320", subcounty:"Githinguri", ward:"Kiiria", village:"Gathanji", lat:-0.087778, lon:36.7825, cows:3, comments:"Recommended" },
+                { number:11, name:"Joseph Muigai", idno:"23445277", phone:"727829366", subcounty:"Githunguri", ward:"Ikinu", village:"Ikinu", lat:-1.107778, lon:36.769722, cows:2, comments:"Recommended" },
+                { number:12, name:"Wallace Muigai", idno:"8779512", phone:"0722785734", subcounty:"Githunguri", ward:"Kiaria", village:"Gitei", lat:-0.934167, lon:36.813889, cows:6, comments:"Recommended" },
+                { number:13, name:"Kariuki Ngotho", idno:"6746036", phone:"704665807", subcounty:"Githunguri", ward:"Kiratina", village:"", lat:-0.986667, lon:36.779167, cows:5, comments:"Recommended" },
+                { number:14, name:"Julius Kaberi Thiong’o", idno:"941925", phone:"713195762", subcounty:"Githunguri", ward:"Ngewa", village:"Gakoe", lat:-1.084444, lon:36.823333, cows:3, comments:"Recommended\\nRepair Unit" },
+                { number:15, name:"Richard Mwangi", idno:"2267016", phone:"725634492", subcounty:"Kijabe", ward:"Kijabe", village:"Gichiengo", lat:-0.943333, lon:36.621389, cows:3, comments:"Recommended" },
+                { number:16, name:"Gabriel Kinuthia", idno:"22850356", phone:"721429462", subcounty:"Komothai", ward:"Komothai", village:"Nginduri", lat:-1.073611, lon:36.87, cows:4, comments:"Recommended" },
+                { number:17, name:"Teresia Njeri K.", idno:"14647263", phone:"724963788", subcounty:"Lari", ward:"Kamburu", village:"Nyanjogu", lat:-1.026389, lon:36.759167, cows:3, comments:"Recommended" },
+                { number:18, name:"John Mwaura", idno:"4046618", phone:"722998342", subcounty:"Lari", ward:"Kamburu", village:"Nyamuthanga", lat:-1.021944, lon:36.759722, cows:8, comments:"Recommended" },
+                { number:19, name:"Michael Ndun’gu", idno:"11391317", phone:"720489605", subcounty:"Lari", ward:"Kamburu", village:"", lat:-1.016944, lon:36.738889, cows:1, comments:"Experienced Cow Theft.\\nTo Be Re-Considered When Project Starts." },
+                { number:20, name:"Joseph Ndung’u", idno:"4489504", phone:"717102520", subcounty:"Lari", ward:"Nyanduma", village:"Kagwe", lat:-1.007222, lon:36.752778, cows:3, comments:"Recommended" },
+                { number:21, name:"John Kagai", idno:"10998672", phone:"706949680", subcounty:"Lari", ward:"Nyanduma", village:"Kachoire", lat:-0.9825, lon:36.719167, cows:1, comments:"Not Recommended\\nTo Be Considered If Cows Are Added" },
+                { number:22, name:"Teresia Wachuka Ndung'u", idno:"21450165", phone:"0712304242", subcounty:"Thika", ward:"Katwanyaga", village:"Monyu", lat:-1.103889, lon:37.165278, cows:1, comments:"Unit Good, Planning To Add Another Cow" },
+                { number:23, name:"Godfrey Njoroge Murigi", idno:"22330244", phone:"0723457428", subcounty:"Thika", ward:"Ngoriba", village:"Maguguni", lat:-1.058889, lon:37.293333, cows:3, comments:"Unit Good, Recommended" },
+                { number:24, name:"Peter Njenga Kimemia", idno:"9619611", phone:"0728733099", subcounty:"Ruiru", ward:"Gatongora", village:"Mutonya", lat:-1.177778, lon:37.019722, cows:7, comments:"Unit With Good Floor But No Roof" },
+                { number:25, name:"Francis Kinuthia/ Christina Wawera Kagunda", idno:"9924835", phone:"0729712834/ 0762292293", subcounty:"Ruiru", ward:"Gatongora", village:"Kiratina", lat:-1.179722, lon:37.014722, cows:5, comments:"Unit Okay" },
+                { number:26, name:"Simon Maina Chege", idno:"4307484", phone:"0722107694", subcounty:"Ruiru", ward:"Gatongora", village:"Mutonya", lat:-1.177778, lon:37.008056, cows:5, comments:"Unit Okay" },
+                { number:27, name:"Christopher Njoroge Boro", idno:"6711560", phone:"0720870298", subcounty:"Limuru", ward:"Limuru East", village:"Gakabu Na Fiti", lat:-1.102778, lon:36.704722, cows:2, comments:"Unit Okay" },
+                { number:28, name:"James Ndung'u Warorwa", idno:"3137572", phone:"0728935731", subcounty:"Limuru", ward:"Tigani Ward", village:"Kabuku", lat:-1.158611, lon:36.672778, cows:3, comments:"Unit Okay" },
+                { number:29, name:"Margaret Wangui", idno:"5249976", phone:"726921524", subcounty:"Lari (Kijabe)", ward:"Kijabe", village:"King’atua", lat:-0.935833, lon:36.608056, cows:1, comments:"Not Recommended \\nTo Be Considered If Cows Are Added" },
+                { number:30, name:"George Gachunga", idno:"", phone:"0703345050", subcounty:"Lari", ward:"Lari", village:"Githirioni", lat:null, lon:null, cows:3, comments:"Githirioni Pry School" },
+                { number:31, name:"Ruth Wanjiru Kiarie", idno:"27963125", phone:"0716186030", subcounty:"Limuru", ward:"Limuru Central", village:"Gitimu", lat:null, lon:null, cows:"", comments:"Chnga Maili / Gatimu Primary" },
+                { number:32, name:"Anthony Ngugi Kimani", idno:"13214219", phone:"0722539532", subcounty:"Limuru", ward:"Limuru Central", village:"Gitimu", lat:null, lon:null, cows:"", comments:"Near Kamirithi Secondary" },
+                { number:33, name:"William K. Mwangi", idno:"4511565", phone:"0722300718", subcounty:"Limuru", ward:"Limuru Central", village:"Tiakunu", lat:null, lon:null, cows:"", comments:"Nyataragi Pry School" },
+                { number:34, name:"Andrew Kiige Njenga", idno:"23251166", phone:"0720547849", subcounty:"Limuru", ward:"Ndaiya", village:"Tiakunu", lat:null, lon:null, cows:"", comments:"Tiakunu Centre" }
+            ],
+            embu: [
+                { number:1, name:"Anthony Nyaga Kamwerengo", idno:"14409676", phone:"0728721818", subcounty:"Embu east", ward:"Kyeni central", village:"Igwanjata", lat:-0.433611, lon:37.610556, cows:3, comments:"" },
+                { number:2, name:"Zachary Murithi", idno:"23110946", phone:"0710394305", subcounty:"Embu east", ward:"Kyeni North", village:"Njerure", lat:-0.385556, lon:37.565556, cows:3, comments:"Recommended" },
+                { number:3, name:"John Ireri", idno:"3304775", phone:"0723017304", subcounty:"Embu East", ward:"Kaagari south", village:"Nguruka", lat:-0.510833, lon:37.640278, cows:3, comments:"Construction Completed" },
+                { number:4, name:"Simon Ireri Laban", idno:"13573348", phone:"0723308960", subcounty:"Embu North", ward:"Nginda", village:"Mwandore", lat:-0.405556, lon:37.450278, cows:3, comments:"Construction Completed" },
+                { number:5, name:"Sylvester Muchira Mutua", idno:"11672786", phone:"0727528236", subcounty:"Embu North", ward:"Nginda", village:"Nguviu", lat:-0.419444, lon:37.447778, cows:2, comments:"Construction Completed" },
+                { number:6, name:"Veronica Njoki Simba", idno:"", phone:"0727865344", subcounty:"Mbeere North", ward:"Thawa North", village:"Mwondu (next to Siakago boys)", lat:-0.534444, lon:37.644167, cows:4, comments:"Construction Completed" },
+                { number:7, name:"Nelson Githaiga", idno:"5922077", phone:"0720906843", subcounty:"Mbeere North", ward:"Thawa North", village:"Kambaru", lat:-0.565278, lon:37.610833, cows:2, comments:"Construction Completed" },
+                { number:8, name:"Niceta Njagi", idno:"0366434", phone:"0710338650", subcounty:"Mbeere North", ward:"Thawa North", village:"Kageri", lat:-0.546944, lon:37.644722, cows:3, comments:"Construction Completed" },
+                { number:9, name:"Jamen Njeeru Machaki", idno:"0295502", phone:"0725708736", subcounty:"Mbeere North", ward:"Thawa North", village:"Muchonoke", lat:-0.593333, lon:37.589167, cows:3, comments:"Construction Completed" },
+                { number:10, name:"James Mucangi", idno:"20564561", phone:"0728114109", subcounty:"Mbeere North", ward:"Thawa North", village:"Kuni", lat:-0.5275, lon:37.671389, cows:3, comments:"Construction Completed" },
+                { number:11, name:"Peris Njango", idno:"4249292", phone:"0727202305/0720738840", subcounty:"Mbeere North", ward:"Evurore", village:"karigiri", lat:-0.465, lon:37.6975, cows:3, comments:"Construction Completed" },
+                { number:12, name:"John Njeru", idno:"0266048", phone:"0725641091", subcounty:"Mbeere South", ward:"Mbeti South", village:"Kaweru", lat:-0.710278, lon:37.608333, cows:3, comments:"Construction Completed" },
+                { number:13, name:"Euphrath Ndige", idno:"13574141", phone:"0726962659", subcounty:"Mbeere south", ward:"mavuria", village:"mavuria", lat:-0.690556, lon:37.626389, cows:3, comments:"Construction Completed" },
+                { number:14, name:"Nicholas Mbuii", idno:"12403890", phone:"0721235886", subcounty:"Mbeere south", ward:"Mbeti south", village:"Kiandegwa", lat:-0.688611, lon:37.599167, cows:7, comments:"Construction Completed" },
+                { number:15, name:"Naomi Muthoni", idno:"5746741", phone:"0726213434", subcounty:"Runyenjes", ward:"RunyenjesCentral", village:"Gashiari", lat:-0.424444, lon:37.580833, cows:3, comments:"Construction Completed" },
+                { number:16, name:"Ezekiel Ndwiga Nyaga", idno:"20183028", phone:"0725738061", subcounty:"Runyenjes", ward:"Runyenjes central", village:"Kiringori", lat:-0.419167, lon:37.558611, cows:3, comments:"Construction Completed" },
+                { number:17, name:"Anthony Kimathi", idno:"33101840", phone:"0112264530", subcounty:"Runyenjes", ward:"Mbiruri", village:"Gathorire", lat:-0.418056, lon:37.563333, cows:7, comments:"Construction Completed" },
+                { number:18, name:"Paul N. Njagi", idno:"22098304", phone:"0727974443", subcounty:"Manyatta", ward:"Gaturi South", village:"Mbukori", lat:null, lon:null, cows:"", comments:"Construction Completed" },
+                { number:19, name:"Dorothy K. Njeru", idno:"20839325", phone:"0729602207", subcounty:"Manyatta", ward:"Mbeti North", village:"Kiereri", lat:-0.489944, lon:37.476028, cows:"", comments:"Construction Completed" },
+                { number:20, name:"Albert N. Nyaga", idno:"9097399", phone:"0716850857", subcounty:"Embu West", ward:"Kithimu", village:"Mvangua", lat:null, lon:null, cows:"", comments:"Recommended" },
+                { number:21, name:"Joseph kithome Njiru", idno:"29420269", phone:"0790846902", subcounty:"Manyatta", ward:"Mbeti north", village:"Itabua", lat:null, lon:null, cows:5, comments:"Proposed for replacement" },
+                { number:22, name:"Annstella Njue", idno:"23074772", phone:"0720413720", subcounty:"Manyatta", ward:"Mbeti South", village:"Rianjeru", lat:null, lon:null, cows:6, comments:"Proposed for replacement" },
+                { number:23, name:"Emilio Njue Njeru", idno:"5746546", phone:"0708907021", subcounty:"Embu", ward:"Ngandori East", village:"kirwari", lat:null, lon:null, cows:3, comments:"Proposed for replacement" },
+                { number:24, name:"John Mwangi Maina", idno:"21243408", phone:"0711691704", subcounty:"Embu", ward:"Mbeti North", village:"", lat:null, lon:null, cows:"", comments:"Proposed for replacement" },
+                { number:25, name:"Lydia Karimi Mugo", idno:"21146459", phone:"0727889704", subcounty:"Embu", ward:"Mbeti North", village:"Kithungururu", lat:null, lon:null, cows:"", comments:"Proposed for replacement" },
+                { number:26, name:"Sophia Emilio", idno:"5096804", phone:"0711268507", subcounty:"Embu West", ward:"Kithimu", village:"Kasutheri", lat:-0.485833, lon:37.525833, cows:3, comments:"One Cow & one bull" },
+                { number:27, name:"Stella Njeru", idno:"", phone:"0723423959", subcounty:"Embu West", ward:"Kithimu", village:"Itengetenge", lat:-0.500278, lon:37.522222, cows:4, comments:"No body at home" },
+                { number:28, name:"Bedan Njeru", idno:"10460131", phone:"0721262717", subcounty:"Manyatta", ward:"Ngandori", village:"Ngandori", lat:-0.446667, lon:37.490278, cows:2, comments:"One cow" },
+                { number:29, name:"Libereta Mururi", idno:"0294532", phone:"0720619909", subcounty:"Mbeere North", ward:"Nthawa North", village:"Kageeri", lat:-0.560278, lon:37.649167, cows:7, comments:"Unit good, Recommended" },
+                { number:30, name:"Zipporah Wanja Muchina", idno:"1297611", phone:"0720253820", subcounty:"Mbeere south", ward:"Mbeti south", village:"Ngenge", lat:-0.630556, lon:37.5275, cows:3, comments:"Zero unit require repair" },
+                { number:31, name:"Nancy Njeru", idno:"10729339", phone:"0723984506\\0729348491", subcounty:"Runyenjes", ward:"Runyenjes central", village:"Gaseke", lat:-0.42, lon:37.578611, cows:4, comments:"Recommended ( has a biogas – To be replaced)" },
+                { number:32, name:"Joseph M. Maina", idno:"13248975", phone:"0727394365", subcounty:"Embu West", ward:"Mbeti North", village:"Gakwegori", lat:null, lon:null, cows:"", comments:"One cow" }
+            ],
+            meru: [
+                { number:1, name:"Lydia Mbaabu", idno:"1355231", phone:"0715528261", subcounty:"Buuri", ward:"Kibirichia", village:"Mburugiti", lat:0.096111, lon:37.5225, cows:4, comments:"Construction completed" },
+                { number:2, name:"Henry Mwogera Mwendia", idno:"0431633", phone:"0726403290", subcounty:"Buuri", ward:"Kiirua Kairebi", village:"Kiirua", lat:0.125833, lon:37.555833, cows:4, comments:"Construction completed" },
+                { number:3, name:"Oliver Muriithi", idno:"22761017", phone:"0708290221", subcounty:"Buuri", ward:"Ruiri", village:"Kambutukei", lat:0.165, lon:37.648333, cows:6, comments:"Construction completed" },
+                { number:4, name:"Manase Kiriinya", idno:"9697475", phone:"0727435046", subcounty:"Buuri", ward:"Ruiri", village:"Mutuma", lat:0.141111, lon:37.608333, cows:3, comments:"Construction completed" },
+                { number:5, name:"Henry Kaibiria", idno:"23370941", phone:"0723651479", subcounty:"Igembe Central", ward:"Njia", village:"Thuuru", lat:0.27, lon:37.9175, cows:3, comments:"Construction completed" },
+                { number:6, name:"Salesio Mbaario", idno:"21178973", phone:"0716413384", subcounty:"Igembe North", ward:"Amwathi", village:"Aithu", lat:0.397222, lon:38.000278, cows:3, comments:"Construction completed" },
+                { number:7, name:"Stanley Maruru Kaberia", idno:"9909145", phone:"0727807383", subcounty:"Igembe North", ward:"Nathu", village:"Bwathine", lat:0.387222, lon:37.979444, cows:3, comments:"Construction completed" },
+                { number:8, name:"Luka Ngolua", idno:"14638396", phone:"0713363904 0739852999", subcounty:"Igembe north", ward:"Ntunene", village:"Kirindara", lat:0.3175, lon:37.949722, cows:4, comments:"Construction completed" },
+                { number:9, name:"Jenifer Gatoma Ntomariu", idno:"20823727", phone:"0797075681", subcounty:"Igembe south", ward:"Akachiu", village:"Kiumwene", lat:0.194444, lon:37.918056, cows:3, comments:"Construction Completed" },
+                { number:10, name:"Patrick Kimathi", idno:"30139327", phone:"0700091439", subcounty:"Igembe south", ward:"Akachiu", village:"Riaki", lat:0.186389, lon:37.920833, cows:2, comments:"Construction Completed" },
+                { number:11, name:"Karimi Ntongai", idno:"2444338", phone:"0725271543", subcounty:"Igembe south", ward:"Kiegoi", village:"Kaibu", lat:0.243611, lon:37.930833, cows:5, comments:"Construction Completed" },
+                { number:12, name:"Cecilia Gitonga", idno:"21358551", phone:"0715635370", subcounty:"Igembe South", ward:"Maua", village:"Luluma", lat:0.217222, lon:37.9575, cows:3, comments:"Construction completed" },
+                { number:13, name:"Silas Mwirigi Magiri", idno:"12694056", phone:"0726452054", subcounty:"Imenti Central", ward:"Abothuguchi west", village:"Mwira\\nng’ombe", lat:0.021667, lon:37.586111, cows:5, comments:"Construction completed" },
+                { number:14, name:"Edwin Mwenda Kimathi", idno:"21842463", phone:"0721305858", subcounty:"Imenti Central", ward:"Mwanganthia", village:"Kiongene", lat:-0.055833, lon:37.718056, cows:3, comments:"Construction completed" },
+                { number:15, name:"Titus   Mwirigi", idno:"13619388", phone:"0724858589", subcounty:"Imenti Central", ward:"Mwangathia", village:"Ngucia", lat:-0.018056, lon:37.7825, cows:4, comments:"Construction completed" },
+                { number:16, name:"Julius Mugambi", idno:"13178618", phone:"0716035567", subcounty:"Imenti Central", ward:"Mwangathia", village:"Ngucia", lat:-0.011667, lon:37.782222, cows:3, comments:"Construction completed" },
+                { number:17, name:"Angelo Murithi", idno:"7453933", phone:"0729471199", subcounty:"South Imenti", ward:"Igoji east", village:"Gicici", lat:-0.198889, lon:37.663333, cows:3, comments:"Construction completed" },
+                { number:18, name:"Silas Munera", idno:"20681738", phone:"0724508513", subcounty:"Tigania Central", ward:"Kiguchwa", village:"Thiira", lat:0.145556, lon:37.846667, cows:3, comments:"Construction completed" },
+                { number:19, name:"Samwel Gikundi Ntuala", idno:"20284184", phone:"0721450747", subcounty:"Tigania Central", ward:"Mikinduri", village:"Anjilu", lat:0.114722, lon:37.848889, cows:3, comments:"Construction completed" },
+                { number:20, name:"David Mwiti Gitonga", idno:"21321844", phone:"0711320098", subcounty:"Tigania Central", ward:"Thangatha", village:"Gitutha", lat:0.162778, lon:37.879444, cows:4, comments:"Construction completed" },
+                { number:21, name:"David Mwilaria", idno:"12617720", phone:"0717776763", subcounty:"Tigania Central", ward:"Thangatha", village:"Ngwela", lat:0.148889, lon:37.883889, cows:2, comments:"Construction completed" },
+                { number:22, name:"Francis Gikundi Kaarai", idno:"21814732", phone:"0723449695", subcounty:"Tigania East", ward:"Karama", village:"Kalevene", lat:0.248056, lon:37.834444, cows:3, comments:"Construction completed" },
+                { number:23, name:"Harison Mweteri", idno:"24876391", phone:"0711467707", subcounty:"Tigania East", ward:"Mikinduri", village:"Amatu", lat:0.11, lon:37.833889, cows:3, comments:"Construction completed" },
+                { number:24, name:"Andrew Mwiraria", idno:"2427237", phone:"0720242476", subcounty:"Tigania East", ward:"Mikinduri", village:"Kiamikwi", lat:0.099722, lon:37.855278, cows:3, comments:"Construction completed" },
+                { number:25, name:"George Mutuma", idno:"22279439", phone:"0714247215", subcounty:"Tigania East", ward:"Mikinduri", village:"Mikirieni", lat:0.105, lon:37.829167, cows:2, comments:"Construction completed" },
+                { number:26, name:"Gerald Karumpu M’tueka", idno:"4512970", phone:"0720731260", subcounty:"Tigania East", ward:"Muthara", village:"Kiruthiru", lat:0.205278, lon:37.804444, cows:3, comments:"Construction completed" },
+                { number:27, name:"Kathurima Limbua", idno:"0474029", phone:"0722832845", subcounty:"Tigania West", ward:"Nkono", village:"Kinyeria", lat:0.142778, lon:37.7275, cows:5, comments:"Construction completed" },
+                { number:28, name:"Peter Mbaabu", idno:"2533575", phone:"0721311363", subcounty:"Tigania West", ward:"Nkono", village:"Kirindine", lat:0.156944, lon:37.734167, cows:3, comments:"Construction completed" },
+                { number:29, name:"Steve Mwenda Muthaura", idno:"22163281", phone:"0721347423", subcounty:"Tigania West", ward:"Nkono", village:"Mwitho", lat:0.111111, lon:37.733333, cows:3, comments:"Construction completed" },
+                { number:30, name:"Julius Mutembei", idno:"31331784", phone:"0726830027", subcounty:"Igembe South", ward:"Kanunio", village:"Anchenge", lat:0.192778, lon:37.945, cows:"", comments:"Construction Completed" },
+                { number:31, name:"Joseph Kithure M’ngai", idno:"20224110", phone:"0725851501", subcounty:"Igembe South", ward:"Akachu", village:"Anto Amuu", lat:0.194722, lon:37.905833, cows:"", comments:"Construction Completed" },
+                { number:32, name:"Andrew Mbaabu", idno:"13183096", phone:"0728384342", subcounty:"Igembe North", ward:"Antu Ambui", village:"Mwera Ngundu", lat:0.346111, lon:37.936667, cows:3, comments:"" },
+                { number:33, name:"Francis Mutabari", idno:"22585940", phone:"0722517382", subcounty:"Igembe Central", ward:"Athiru", village:"Baibario", lat:0.291389, lon:38.053889, cows:4, comments:"Construction completed" },
+                { number:34, name:"Josephine Mwendwa", idno:"14638434", phone:"0723275433", subcounty:"Igembe Central", ward:"Athiru", village:"Kawiru", lat:0.290833, lon:37.998889, cows:2, comments:"Construction underway" },
+                { number:35, name:"Silas Gitonga", idno:"23461434", phone:"0710434358", subcounty:"Igembe North", ward:"Amwathi", village:"Aithu", lat:0.393611, lon:37.998056, cows:3, comments:"" },
+                { number:36, name:"Silas Kaunga", idno:"2471059", phone:"0701132364", subcounty:"Igembe south", ward:"Akachiu", village:"Amaku", lat:0.17, lon:37.932222, cows:4, comments:"" },
+                { number:37, name:"Salome Manyara", idno:"21925070", phone:"0724697060", subcounty:"Igembe South", ward:"Kanuni", village:"Ankamia", lat:0.195556, lon:37.960833, cows:2, comments:"" },
+                { number:38, name:"Thomas Mutembei", idno:"14638337", phone:"0725844791", subcounty:"Igembe South", ward:"Maua", village:"Gitura", lat:0.222778, lon:37.959167, cows:2, comments:"" },
+                { number:39, name:"Agnes Kamami Ngeraa", idno:"13174150", phone:"0710137722", subcounty:"Igembe South", ward:"Akachu", village:"Amwamba", lat:0.197222, lon:37.935, cows:3, comments:"Construction completed and curing. Feeding recommended" },
+                { number:40, name:"Douglas Mwenda Bundi", idno:"24464896", phone:"0725628960", subcounty:"Imenti Central", ward:"Abothuguchi west", village:"Kathiranga", lat:0.01, lon:37.577222, cows:3, comments:"Construction Completed" },
+                { number:41, name:"Catherine Kathira", idno:"7730224", phone:"0790461772", subcounty:"Imenti Central", ward:"Kibaranyagi", village:"Gikune", lat:0.004444, lon:37.578611, cows:3, comments:"Construction Completed" },
+                { number:42, name:"Dorothy Kagwiria Mwenda", idno:"13526248", phone:"0748153852", subcounty:"Imenti Central", ward:"Abothuguchi", village:"Kianthumbi", lat:0.024167, lon:37.612778, cows:3, comments:"Construction Completed" },
+                { number:43, name:"Jacob Muriungi Nkariata", idno:"7769344", phone:"0712184664", subcounty:"Imenti North", ward:"Ntima west", village:"Kithima", lat:0.007222, lon:37.649444, cows:3, comments:"Construction Completed" },
+                { number:44, name:"Caroline Njeri Kithinji", idno:"24305263", phone:"0725681324", subcounty:"Imenti South", ward:"Abogeta East", village:"Kierera", lat:-0.098056, lon:37.643611, cows:3, comments:"Construction Completed" },
+                { number:45, name:"Aileen Gacheri", idno:"22035925", phone:"0713330896", subcounty:"Imenti South", ward:"Abogetha East", village:"Kianderi", lat:0.105278, lon:37.700833, cows:4, comments:"Construction Completed" },
+                { number:46, name:"Joel Kairemia Kumbuku", idno:"0452188", phone:"0721462765", subcounty:"Imenti North", ward:"Nyaki west", village:"Nkankankere", lat:0.105278, lon:37.696389, cows:3, comments:"Construction completed and feeding recommended" }
+            ],
+            "tharaka nithi": [
+                { number:1, name:"Albert Mugambi", idno:"9295079", phone:"0720346343", subcounty:"Chuka", ward:"Mugwe", village:"Kagutani", lat:-0.356944, lon:37.659167, cows:4, comments:"Construction completed" },
+                { number:2, name:"Moris Mutwiri", idno:"25943946", phone:"0703496209", subcounty:"Chuka", ward:"Mugwe", village:"Kieni", lat:-0.352222, lon:37.646667, cows:3, comments:"Construction completed" },
+                { number:3, name:"Johnstone Boore Irungo", idno:"1005227", phone:"0716331736", subcounty:"Chuka", ward:"Mugwe", village:"Nthima", lat:-0.3525, lon:37.682778, cows:3, comments:"Construction completed" },
+                { number:4, name:"Martin Kinyua", idno:"26776182", phone:"0725995772", subcounty:"Igamba ngombe", ward:"Mariani", village:"Mariani", lat:-0.293611, lon:37.633889, cows:3, comments:"Construction completed" },
+                { number:5, name:"Jackline Kirimi  Phares", idno:"25958191", phone:"0794673246", subcounty:"Igamba Ngombe", ward:"Mariani", village:"mugwanthi", lat:-0.391667, lon:37.701944, cows:4, comments:"Construction completed" },
+                { number:6, name:"Anderson Njeru Murungi", idno:"9214890", phone:"0728148013", subcounty:"Maara", ward:"Chogoria", village:"Ithai", lat:-0.213611, lon:37.594444, cows:3, comments:"Construction completed" },
+                { number:7, name:"Danstan Kithinji", idno:"16021248", phone:"0719455111", subcounty:"Maara", ward:"Chogoria", village:"Makuri", lat:-0.225556, lon:37.605278, cows:3, comments:"Construction completed" },
+                { number:8, name:"Julia kanyamu Njeru", idno:"8301919", phone:"0712777607", subcounty:"Maara", ward:"Chogoria", village:"Mwema", lat:-0.260833, lon:37.659444, cows:4, comments:"Recommended" },
+                { number:9, name:"Charles Mbaabu Murungi", idno:"21008799", phone:"0720801447", subcounty:"Maara", ward:"Ganga", village:"Ntororo", lat:-0.234167, lon:37.680833, cows:3, comments:"Construction completed" },
+                { number:10, name:"Jasper Gitonga Kaumbuthu", idno:"20373732", phone:"0721892430", subcounty:"Maara", ward:"Mitheru", village:"Kigui", lat:-0.296111, lon:37.620278, cows:3, comments:"Construction completed" },
+                { number:11, name:"Frankline Nkonge", idno:"11256706", phone:"0721521602", subcounty:"Maara", ward:"Muthambi", village:"Kajionduthi", lat:-0.266944, lon:37.6475, cows:3, comments:"Construction completed" },
+                { number:12, name:"Kaburu Manene Royford", idno:"4433877", phone:"0713759497", subcounty:"Maara", ward:"Muthambi", village:"Mumbuni", lat:-0.287222, lon:37.728333, cows:2, comments:"Recommended" },
+                { number:13, name:"Vitalis Mutugi", idno:"24783265", phone:"0722945357", subcounty:"Tharaka", ward:"Mukothima", village:"Kirigicha", lat:0.008056, lon:37.919722, cows:6, comments:"Recommended" },
+                { number:14, name:"Ribia Kawithi", idno:"10343184", phone:"0720546432", subcounty:"Tharaka south", ward:"Nkodi", village:"Kirimani", lat:-0.039444, lon:37.961944, cows:6, comments:"Recommended" },
+                { number:15, name:"Hellen Karugo Njeru", idno:"8301919", phone:"0715679459", subcounty:"Tharaka south", ward:"Nkodi", village:"Mukuyuni", lat:-0.020556, lon:37.965833, cows:3, comments:"Recommended" },
+                { number:16, name:"Adiel Mutwiri Manyaki", idno:"22836496", phone:"0790127222", subcounty:"Igambe ngombe", ward:"Mariani", village:"Chelaa", lat:-0.366389, lon:37.688611, cows:3, comments:"Recommended" },
+                { number:17, name:"Fredrick Mwenda Njeru", idno:"22533620", phone:"0725036681", subcounty:"Maara", ward:"Chogoria", village:"Kantaraki", lat:-0.260278, lon:37.616111, cows:2, comments:"Promised to add another cow. Recommended" },
+                { number:18, name:"Janice Kagendo Karuku", idno:"21063048", phone:"0721905798", subcounty:"Maara", ward:"Ganga", village:"Kauri", lat:-0.240278, lon:37.695278, cows:3, comments:"Recommended" },
+                { number:19, name:"Jane Ireri", idno:"2394471", phone:"0715193346", subcounty:"Maara", ward:"Ganga", village:"Kiamagogo", lat:-0.248611, lon:37.665, cows:3, comments:"Recommended" },
+                { number:20, name:"Evans Kirimi", idno:"20117730", phone:"0725304314", subcounty:"Maara", ward:"Muthambi", village:"Nkandori", lat:-0.265, lon:37.631944, cows:3, comments:"Recommended" },
+                { number:21, name:"Joyce Kathanga Mucheke", idno:"0534209", phone:"0702573844", subcounty:"Maara", ward:"Chogoria", village:"Gutaniro", lat:-0.231389, lon:37.670278, cows:5, comments:"Recommended" },
+                { number:22, name:"Rufus Mutembei Thuura", idno:"1008424", phone:"0729929234", subcounty:"Maara", ward:"Chogoria", village:"Kerigoni", lat:-0.262222, lon:37.650556, cows:5, comments:"Recommended" },
+                { number:23, name:"Charles miriti", idno:"5094925", phone:"0721913910", subcounty:"Maara", ward:"Chogoria", village:"Wiru", lat:-0.238611, lon:37.653056, cows:7, comments:"Recommended" },
+                { number:24, name:"Markylas Mutegi", idno:"26302806", phone:"0700577758", subcounty:"Maara", ward:"Muthambi", village:"Kaigani", lat:-0.261389, lon:37.633889, cows:4, comments:"Recommended" },
+                { number:25, name:"Agnes Kanyiri Njagi", idno:"25509114", phone:"0740733463", subcounty:"Maara", ward:"Muthambi", village:"Kirogini", lat:-0.281111, lon:37.709444, cows:5, comments:"Recommended" },
+                { number:26, name:"Danson Mawira", idno:"23644546", phone:"0726907537", subcounty:"Maara", ward:"Muthambi", village:"Kiuni", lat:-0.293333, lon:37.647222, cows:6, comments:"Recommended" }
+            ],
+            nakuru: [
+                { number:1, name:"Marion Njeri Koigi", idno:"10507897", phone:"0727221924", subcounty:"Molo", ward:"Elburgon", village:"Cheponde", lat:-0.2775, lon:35.839167, cows:5, comments:"Meets criteria" },
+                { number:2, name:"Lucy Muthoni", idno:"23432298", phone:"0726674696", subcounty:"Njoro", ward:"Njoro", village:"Ng’ondu B", lat:-0.280556, lon:35.891111, cows:3, comments:"Construction completed" },
+                { number:3, name:"Shadrack Ng’eno", idno:"22880642", phone:"0724630077", subcounty:"Rongai", ward:"Visoi", village:"Burgei", lat:-0.143056, lon:35.871667, cows:3, comments:"Meets criteria" },
+                { number:4, name:"Gabriel Njau", idno:"22821038", phone:"0720000418", subcounty:"Bahati", ward:"Bahati", village:"Nyathona", lat:0.2125, lon:36.140833, cows:3, comments:"Construction completed" },
+                { number:5, name:"Peter Mungai", idno:"3623096", phone:"0720368578", subcounty:"Bahati", ward:"Dundori", village:"Taboga Farm", lat:-0.269167, lon:36.179167, cows:3, comments:"Construction completed" },
+                { number:6, name:"Maximo Kamau Chege", idno:"25700115", phone:"0729044757", subcounty:"Gilgil", ward:"Eburu Mbaruk", village:"Eburu", lat:0.641111, lon:36.270556, cows:2, comments:"Construction completed" },
+                { number:7, name:"Philemon Bii", idno:"11635574", phone:"0710113020", subcounty:"Kuresoi South", ward:"Kiptagich", village:"Ketitu", lat:0.605278, lon:35.650556, cows:3, comments:"Under construction" },
+                { number:8, name:"Beatrice Chelangat Kimeto", idno:"23142646", phone:"0729068348", subcounty:"Kuresoi South", ward:"Tinet", village:"Ng’enda", lat:0.5175, lon:35.688056, cows:2, comments:"Under construction" },
+                { number:9, name:"Benson Muhuhe Mwangi", idno:"1116605", phone:"721809184", subcounty:"Molo", ward:"Elburgon", village:"Ribot", lat:-0.267778, lon:35.845278, cows:3, comments:"Construction Completed" },
+                { number:10, name:"Francis Njenga", idno:"4275836", phone:"0729542157", subcounty:"Molo", ward:"Turi", village:"Ndenderu B", lat:-0.313889, lon:35.718333, cows:10, comments:"Construction Completed" },
+                { number:11, name:"Joseph Kimani Gathumbi", idno:"1322723", phone:"0722424605", subcounty:"Molo", ward:"Turi", village:"Ndenderu B", lat:-0.325, lon:35.719722, cows:3, comments:"Recommended \\nCurrently cows not in the unit" },
+                { number:12, name:"Alice Wairimu", idno:"5912374", phone:"0729942468", subcounty:"Molo", ward:"Turi", village:"Rafiki", lat:-0.307222, lon:35.730278, cows:2, comments:"Recommended" },
+                { number:13, name:"John Njoroge Kamau", idno:"6438967", phone:"0715846570", subcounty:"Molo", ward:"Turi", village:"Valley Farm", lat:-0.269, lon:35.753889, cows:4, comments:"Recommended" },
+                { number:14, name:"Margaret Magiri", idno:"22040264", phone:"0721233885", subcounty:"Naivasha", ward:"Lake View", village:"Kayole", lat:0.758333, lon:36.456389, cows:2, comments:"Construction completed" },
+                { number:15, name:"Loise Wambui Macharia", idno:"4408357", phone:"0723274590", subcounty:"Naivasha", ward:"Naivasha East", village:"Kiambogo", lat:-0.864722, lon:36.515278, cows:7, comments:"Construction completed" },
+                { number:16, name:"Samuel Karogo", idno:"5978366", phone:"0721313952", subcounty:"Njoro", ward:"Kihingo", village:"Mtito A", lat:0.437778, lon:35.9625, cows:3, comments:"Recommended" },
+                { number:17, name:"Willy Kimutai Tuei", idno:"20682320", phone:"0724202716", subcounty:"Njoro", ward:"Mauche\\nKiptenden", village:"Kapkembo", lat:0.492778, lon:35.971389, cows:7, comments:"Construction completed" },
+                { number:18, name:"Monicah Yegon", idno:"25237064", phone:"0726678200", subcounty:"Njoro", ward:"Mauche\\nKiptenden", village:"Tegunot", lat:0.492778, lon:35.971389, cows:5, comments:"" },
+                { number:19, name:"Judy Jemtai Kiplagat", idno:"13065003", phone:"0726684514", subcounty:"Nyadundo", ward:"Solai", village:"Edao", lat:-0.077222, lon:35.116389, cows:4, comments:"Construction Completed" },
+                { number:20, name:"Nelly Nyambura", idno:"24827905", phone:"0717626439", subcounty:"Rongai", ward:"Menengai West", village:"Mangu", lat:-0.2075, lon:35.966944, cows:3, comments:"Construction Completed (??dome)" },
+                { number:21, name:"Alice Nduta Macharia", idno:"1335379", phone:"0710916500", subcounty:"Rongai", ward:"Menengai West", village:"Ngombe  Moja", lat:-0.208611, lon:35.973333, cows:3, comments:"Construction Completed" },
+                { number:22, name:"Philip Lagat", idno:"0434450", phone:"0726305488", subcounty:"Rongai", ward:"Visoi", village:"Kware Kapkwen", lat:0.141389, lon:35.816944, cows:5, comments:"To repair unit, no concrete.\\nRecommended" },
+                { number:23, name:"Thomas Kitilit Kibet", idno:"20824893", phone:"0720438788", subcounty:"Subikia", ward:"Kabazi", village:"Mrigat Farm", lat:0.116667, lon:36.079722, cows:6, comments:"Construction completed" },
+                { number:24, name:"Willy Mwangi Waweru", idno:"20788630", phone:"0797567841", subcounty:"Subukia", ward:"Kabazi", village:"Jumatatu Farm", lat:0.072778, lon:36.168611, cows:4, comments:"Construction completed" },
+                { number:25, name:"Jane Wanjiru Nyoike", idno:"3874645", phone:"0727540042", subcounty:"Subukia", ward:"Solai", village:"Marigu", lat:-0.061944, lon:36.122222, cows:2, comments:"Construction completed" },
+                { number:26, name:"Jane Nduta Ngunjiri", idno:"10511181", phone:"0721515439", subcounty:"Subukia", ward:"Solai", village:"Marigu", lat:-0.065833, lon:36.135556, cows:3, comments:"Construction completed" },
+                { number:27, name:"Grace Wangari Muturi", idno:"4281362", phone:"0714993855", subcounty:"Subukia", ward:"Subukia", village:"Subukia Valley", lat:-0.051667, lon:36.17, cows:2, comments:"Under construction" },
+                { number:28, name:"Bernard Rono", idno:"20398546", phone:"0723342818", subcounty:"Kuresoi North", ward:"Sirikwa", village:"Cheptangun", lat:0.271111, lon:35.666111, cows:2, comments:"Construction Completed" },
+                { number:29, name:"Judy Langat", idno:"24276994", phone:"0724263815", subcounty:"Kuresoi south", ward:"Keringet", village:"Kosyin", lat:-0.437222, lon:35.683611, cows:3, comments:"Construction Completed" },
+                { number:30, name:"Nickson Langat", idno:"28750619", phone:"0724809120", subcounty:"Kuresoi north", ward:"Sirikwa", village:"Cheptagun", lat:-0.272222, lon:35.667778, cows:5, comments:"Construction Completed" },
+                { number:31, name:"Bernard Cheruyoit", idno:"30559535", phone:"0723148596", subcounty:"Kuresoi north", ward:"Sirikwa", village:"By-gun", lat:-0.296111, lon:35.664167, cows:3, comments:"Construction Completed" },
+                { number:32, name:"Rael Sogome Kaptum", idno:"7077433", phone:"0721546110", subcounty:"Rongai", ward:"Visoi", village:"Mahinga", lat:-0.096944, lon:35.918889, cows:7, comments:"" },
+                { number:33, name:"Purity Chepkemoi", idno:"28490421", phone:"0717976582", subcounty:"Njoro", ward:"Mauche Kiptenden", village:"Kimugoi", lat:0.498333, lon:35.971389, cows:"", comments:"Replacement" },
+                { number:34, name:"Grace Wanjiku Kamau", idno:"8847222", phone:"0725868069", subcounty:"Njoro", ward:"Kihingo", village:"Njoguini", lat:-0.423333, lon:35.973333, cows:"", comments:"Construction Completed" },
+                { number:35, name:"Hellen Chepngeno Langat", idno:"24206399", phone:"0729675738", subcounty:"Kuresoi South", ward:"Keringet", village:"Suptet", lat:-0.488889, lon:35.696389, cows:"", comments:"Construction Completed" },
+                { number:36, name:"Robert Cheruiyot", idno:"10195666", phone:"0720600974", subcounty:"Kuresoi South", ward:"Amalo", village:"Koket", lat:-0.591111, lon:35.506667, cows:"", comments:"Constructed. To be inspected" },
+                { number:37, name:"Maureen Koech", idno:"13362505", phone:"0720600260", subcounty:"Kuresoi South", ward:"Amalo", village:"Saptet", lat:-0.601944, lon:35.666111, cows:"", comments:"Construction Completed" },
+                { number:38, name:"Margaret Nyambura Ngure", idno:"7083342", phone:"0727023348", subcounty:"Kuresoi north", ward:"Sirikwa", village:"Ngenia", lat:-0.290278, lon:35.690556, cows:3, comments:"Replacement" },
+                { number:39, name:"Peter Waithaka Njuguna", idno:"2337916", phone:"0748037877", subcounty:"Subukia", ward:"Subukia", village:"Subukia Valley", lat:-0.033056, lon:36.165833, cows:"", comments:"Construction Completed" },
+                { number:40, name:"Shadrack Ng’eno", idno:"22880642", phone:"0724630077", subcounty:"Rongai", ward:"Visoi", village:"Burgei", lat:-0.143056, lon:35.871667, cows:3, comments:"Suitable site, to construct" },
+                { number:41, name:"Benard Mwangi Kamau", idno:"13256306", phone:"0718210748", subcounty:"Subukia", ward:"Kabazi", village:"Jumatatu", lat:-0.077222, lon:36.162222, cows:4, comments:"Suitable site" },
+                { number:42, name:"Antony Waweru Chege", idno:"35809247", phone:"0707844326", subcounty:"Subukia", ward:"Munanda", village:"Kathima", lat:-0.036389, lon:36.181667, cows:3, comments:"Suitable site" },
+                { number:43, name:"Peter Kanji Kimani", idno:"3622317", phone:"0716150076", subcounty:"Subukia", ward:"Munanda", village:"Kwandege", lat:-0.040278, lon:36.175833, cows:3, comments:"Suitable Site" },
+                { number:44, name:"Peninah Kamau", idno:"11462369", phone:"0726727899", subcounty:"Njoro", ward:"Mau narok", village:"Mathangautha", lat:-0.5625, lon:35.984444, cows:3, comments:"Suitable site" },
+                { number:45, name:"Edith Milgo Tonui", idno:"22983970", phone:"0728891380", subcounty:"Kuresoi South", ward:"Keringet", village:"Suptet", lat:-0.487778, lon:35.702222, cows:3, comments:"Suitable site" },
+                { number:46, name:"Josephine Magoma Mong’are", idno:"11200438", phone:"0721813083", subcounty:"Bahati", ward:"Kabatini", village:"Karunga", lat:-0.180556, lon:36.169444, cows:7, comments:"Suitable site" },
+                { number:47, name:"Margret Kariuki", idno:"27298202", phone:"0724782602", subcounty:"Bahati", ward:"Kabatini", village:"Rogoro", lat:-0.168889, lon:36.170556, cows:6, comments:"Suitable site" },
+                { number:48, name:"Suleiman Macharia Kamau", idno:"20830877", phone:"0725717660", subcounty:"Bahati", ward:"Kabatini", village:"Sindaloji", lat:-0.191667, lon:36.173889, cows:3, comments:"Suitable site" },
+                { number:49, name:"Symon Ng’etich", idno:"0290156", phone:"0722877419", subcounty:"Koibatek", ward:"Eldama Ravine", village:"Kobitoi", lat:0, lon:35.745833, cows:5, comments:"Meets criteria" },
+                { number:50, name:"Joseph Macharia", idno:"20516663", phone:"", subcounty:"Gilgil", ward:"Murindat", village:"Cura", lat:-0.377222, lon:36.301389, cows:2, comments:"Recommended" },
+                { number:51, name:"Bornus Korir", idno:"14438647", phone:"0729879192", subcounty:"Kuresoi South", ward:"Amalo", village:"Ambusket", lat:0.621667, lon:35.648611, cows:5, comments:"Recommended" },
+                { number:52, name:"Grace Kiarie", idno:"4827905", phone:"0722", subcounty:"Rongai", ward:"Menengai West", village:"Mangu", lat:-0.213333, lon:35.966111, cows:2, comments:"To add more cows, \\nRecommended" },
+                { number:53, name:"Flora Kiboino", idno:"12784116", phone:"0725758480", subcounty:"Rongai", ward:"Menengai West", village:"Mangu", lat:-0.210833, lon:35.9675, cows:2, comments:"To add more cows\\nRecommended" },
+                { number:54, name:"Veronica Mwangi", idno:"", phone:"0722964784", subcounty:"Kuresoi north", ward:"Sirikwa", village:"Ngenia", lat:-0.290278, lon:35.690556, cows:3, comments:"Recommended" },
+                { number:55, name:"James Wainaina Kariuki", idno:"8149539", phone:"0722669712", subcounty:"Rongai", ward:"Mosop", village:"Turi Farmers", lat:null, lon:null, cows:3, comments:"Had a biogas" },
+                { number:56, name:"Hanna Wairimu", idno:"", phone:"0723874548", subcounty:"Bahati", ward:"Lanet", village:"Lanet Teachers", lat:0.278889, lon:36.163611, cows:"", comments:"Only one cow" },
+                { number:57, name:"Joseph Macharia", idno:"20516663", phone:"", subcounty:"Gilgil", ward:"Murindat", village:"Cura", lat:-0.377222, lon:36.301389, cows:2, comments:"Repeated in the list" },
+                { number:58, name:"Marion Njeri Koigi", idno:"10507897", phone:"0727221924", subcounty:"Molo", ward:"Elburgon", village:"Cheponde", lat:null, lon:null, cows:5, comments:"Repeated in the list" },
+                { number:59, name:"Ann Njeri Ndung’u", idno:"24321089", phone:"0713686575", subcounty:"Naivasha", ward:"Kinungi East", village:"Munyu", lat:-0.818056, lon:36.526667, cows:2, comments:"To add more cows\\nNot reached on phone" },
+                { number:60, name:"Lucy Muthoni", idno:"23432298", phone:"0726674696", subcounty:"Njoro", ward:"Njoro", village:"Ng’ondu B", lat:null, lon:null, cows:3, comments:"Repeated in the list" },
+                { number:61, name:"Bernard Cheruyoit", idno:"30559535", phone:"0723485960", subcounty:"Kuresoi north", ward:"Sirikwa", village:"By-gun", lat:-0.296111, lon:35.664167, cows:3, comments:"Repeated in the list" }
+            ],
+            machakos: [
+                { number:1, name:"Eunice Nthambia", idno:"3431462", phone:"0727758456", subcounty:"Machakos Town", ward:"Kola", village:"Kyamuthintha", lat:-1.654722, lon:37.261111, cows:"", comments:"Construction completed" },
+                { number:2, name:"Dorcas Wanza", idno:"21090261", phone:"0799908235", subcounty:"Mavoko", ward:"Makutano /Kinanie", village:"Kiasa", lat:-1.578333, lon:37.108889, cows:"", comments:"Construction completed" },
+                { number:3, name:"Regina Mutisya", idno:"1699810", phone:"0701082531", subcounty:"Mwala", ward:"Masii", village:"Katheka", lat:-1.403889, lon:37.388889, cows:"", comments:"Construction completed" },
+                { number:4, name:"Jacinta Musyoka", idno:"22164267", phone:"0720179105", subcounty:"Mwala", ward:"Masii", village:"Katheka", lat:-1.408333, lon:37.391667, cows:"", comments:"Construction completed" },
+                { number:5, name:"Colleta Kilonzo Gasper", idno:"1701721", phone:"0704682100", subcounty:"Mwala", ward:"Masii", village:"Ndumbi", lat:-1.410278, lon:37.383056, cows:"", comments:"Construction completed" },
+                { number:6, name:"Nicholas Mulwa", idno:"10818811", phone:"0724619562", subcounty:"Mwala", ward:"Masii", village:"Utiithini", lat:-1.510833, lon:37.453611, cows:"", comments:"Construction completed" },
+                { number:7, name:"Dickson Kisoa", idno:"4628868", phone:"0733816419/ 0714200349", subcounty:"Athi River", ward:"Kinanie/ Mathatani", village:"Kiasa Kyumbi", lat:-1.553611, lon:37.123333, cows:"", comments:"Construction completed" },
+                { number:8, name:"Philip Kitetu Mutyanziu", idno:"7344048", phone:"0722709321", subcounty:"Mwala", ward:"Masii", village:"Utiithini", lat:-1.515, lon:37.461111, cows:"", comments:"Construction completed" },
+                { number:9, name:"Simon Mutisya Mulandi", idno:"9224860", phone:"0713726946", subcounty:"Kathiani", ward:"Kaewa", village:"Kisovo", lat:-1.438056, lon:37.326667, cows:"", comments:"Construction completed" },
+                { number:10, name:"Margaret Wanjiku", idno:"3059761", phone:"0722913791", subcounty:"Kasarani", ward:"Ruai", village:"Highway", lat:-1.281667, lon:37.019444, cows:"", comments:"Construction completed" },
+                { number:11, name:"James Mutua Kakula", idno:"108468", phone:"0727939331", subcounty:"Kathiani", ward:"Kaewa", village:"Kalunga", lat:-1.440278, lon:37.316111, cows:"", comments:"Construction completed" },
+                { number:12, name:"Jacob Museu", idno:"7929188", phone:"0724962245", subcounty:"Machakos", ward:"Mutitu Ngarani", village:"Muvae", lat:-1.453056, lon:37.255556, cows:"", comments:"Construction completed" },
+                { number:13, name:"Ann Mwanzia", idno:"26363500", phone:"0713415259", subcounty:"Mua", ward:"Mua", village:"Kyanda", lat:-1.470556, lon:37.229444, cows:"", comments:"Construction completed" },
+                { number:14, name:"Stephen Mutisya Makau", idno:"22087332", phone:"0725296751", subcounty:"Machakos", ward:"Mutithini", village:"Uthini", lat:-1.450556, lon:37.246944, cows:"", comments:"Construction completed" },
+                { number:15, name:"John Bosco Kilonzo", idno:"9939049", phone:"0712817467", subcounty:"Machakos", ward:"Mutitu Ngarani", village:"Kasaini", lat:null, lon:null, cows:"", comments:"Construction completed" },
+                { number:16, name:"Antony Sira Ndolo.", idno:"21626703", phone:"0723584876", subcounty:"Machakos", ward:"Mumboni North", village:"Kasinga", lat:-1.473333, lon:37.264444, cows:"", comments:"Construction completed" },
+                { number:17, name:"Nancy Muchiri", idno:"21046292", phone:"0721214869", subcounty:"Machakos", ward:"Kola", village:"Kivandini", lat:-1.6675, lon:37.271111, cows:"", comments:"Construction completed" },
+                { number:18, name:"Michael Wamathai", idno:"6586405", phone:"0732858191", subcounty:"Matunguluu", ward:"Koma", village:"Kantafu", lat:-1.290833, lon:37.188333, cows:"", comments:"Replacement" },
+                { number:19, name:"Wilson Muhuko", idno:"5599879", phone:"0725808456", subcounty:"Matunguluu", ward:"Koma", village:"kitaani", lat:-1.292778, lon:37.159722, cows:"", comments:"Replacement" }
+            ],
+            nairobi: [
+                { number:1, name:"Margaret Wanjiku", idno:"3059761", phone:"0722913791", subcounty:"Kasarani", ward:"Ruai", village:"Highway", lat:-1.281667, lon:37.019444, cows:"", comments:"Construction completed" }
+            ],
+            migori: [
+                { number:1, name:"Esther Mwita Nchagwa", idno:"23289821", phone:"0720285583\\n0724662312", subcounty:"Kuria West", ward:"Masaba", village:"Bukumbe\\nNorth", lat:-1.120556, lon:34.529167, cows:"", comments:"Construction completed and feeding recommended" },
+                { number:2, name:"Peter Mukami Nchama", idno:"23169871", phone:"0727676778", subcounty:"Kuria West", ward:"Masaba", village:"Bohorera/\\nBukumbe North", lat:-1.129167, lon:34.534722, cows:"", comments:"Construction completed and feeding recommended" },
+                { number:3, name:"Mary Chacha", idno:"1537953", phone:"0722434084\\n0722684575", subcounty:"Kehancha/\\nKuria West", ward:"Kehancha", village:"Igena", lat:-1.195278, lon:34.617222, cows:"", comments:"Construction in progress" },
+                { number:4, name:"Miriam Mogezi", idno:"25700797", phone:"0722170711", subcounty:"Kuria West", ward:"Tagare", village:"Kiamagobe", lat:-1.159444, lon:34.443056, cows:"", comments:"Construction completed and feeding demonstrated" },
+                { number:5, name:"Samwel Angira", idno:"2738831", phone:"0722699515", subcounty:"Suna West", ward:"Wasweta", village:"Nyabisawa", lat:-1.075278, lon:34.4225, cows:"", comments:"Construction completed and feeding recommended" },
+                { number:6, name:"Nahasion Ochieng", idno:"14723460", phone:"0727620706", subcounty:"Suna West", ward:"Wasweta", village:"Bondeni", lat:-1.073611, lon:34.439444, cows:"", comments:"Construction completed and feeding demonstrated" },
+                { number:7, name:"Alice Adawo", idno:"0468179", phone:"0707217795", subcounty:"Suna West", ward:"Oruba Ragana", village:"Marindi/\\nKiringi", lat:-1.093889, lon:34.466667, cows:"", comments:".No zero unit" },
+                { number:8, name:"Alfred Kanango Omondi", idno:"20697956", phone:"0720289195", subcounty:"Suna East", ward:"Kakrao", village:"Warisia", lat:-1.010556, lon:34.474444, cows:"", comments:"Construction completed feeding recommended" },
+                { number:9, name:"Phelgone Adhiambo", idno:"9595999", phone:"0721334346\\n0790302675", subcounty:"Suna East", ward:"Kakrao", village:"Majengo", lat:-1.024444, lon:34.486389, cows:"", comments:"Construction completed and feeding recommended" },
+                { number:10, name:"Tabitha Oduor", idno:"2009856", phone:"0728728937", subcounty:"Suna East", ward:"Kakrao", village:"Upper Kakrao", lat:-1.029167, lon:34.485833, cows:"", comments:"Construction completed and feeding recommended" },
+                { number:11, name:"Abisae Dhalizu Kibuhiru", idno:"3982925", phone:"0710198289", subcounty:"Uriri", ward:"South \\nKanyamkago", village:"Bware", lat:-1.006667, lon:34.525, cows:"", comments:"No zero unit" },
+                { number:12, name:"Lawrence Ndega", idno:"2739896", phone:"0722949202", subcounty:"Uriri", ward:"South\\nKanyamkago", village:"Sigiria", lat:-0.999722, lon:34.505, cows:"", comments:"Construction completed and feeding recommended" },
+                { number:13, name:"Naftali Ochieng\\nWasonga", idno:"10025687", phone:"0790095151", subcounty:"Awendo", ward:"East\\nSakwa", village:"Raruowa/\\nKanyase", lat:-0.838333, lon:34.573889, cows:"", comments:"Construction completed and feeding recommended" },
+                { number:14, name:"George Okinyi\\nDuro", idno:"22381330", phone:"0722625988", subcounty:"Nyatike", ward:"Macalder\\nKanyaruanda", village:"Southern\\nKadem", lat:-0.974444, lon:34.324444, cows:"", comments:"Zero unit not cemented" },
+                { number:15, name:"Tom Mboya\\nObenge", idno:"11632116", phone:"0727083247", subcounty:"Awendo", ward:"South Sakwa", village:"Manyatta", lat:-0.896667, lon:34.549722, cows:"", comments:"Construction completed and feeding recommended" },
+                { number:16, name:"James Okumu", idno:"10284692", phone:"0721795682", subcounty:"Awendo", ward:"West Sakwa", village:"Siruti", lat:-0.883056, lon:34.504167, cows:"", comments:"Construction completed and feeding recommended" },
+                { number:17, name:"Jane Achieng \\nOduk", idno:"3506396", phone:"0723914447\\n0721771174", subcounty:"Rongo", ward:"South\\nKamagambo", village:"Kambere \\nOkumba", lat:-0.923056, lon:34.62, cows:"", comments:"Too far from other beneficiary" },
+                { number:18, name:"Julius Opiyo", idno:"", phone:"0721714990", subcounty:"Nyatike", ward:"North Kadem", village:"", lat:-1.006944, lon:34.309444, cows:"", comments:"Has only one cow" },
+                { number:19, name:"Jeremia Onunga", idno:"21793915", phone:"0728895351", subcounty:"Uriri", ward:"South Kanyamkago", village:"Edemba", lat:null, lon:null, cows:"", comments:"Zero unit not cemented\\nNot ready to be considered in the next lot" },
+                { number:20, name:"Linet Omollo", idno:"10894824", phone:"0721241166", subcounty:"Uriri", ward:"South Kanyamkago", village:"Bware", lat:-0.995, lon:34.521389, cows:"", comments:"Construction completed and feeding recommended" },
+                { number:21, name:"Gintu Sigano", idno:"37914566", phone:"0700490047", subcounty:"Kuria West", ward:"Bukumbe", village:"Isibania nyabohanze", lat:-1.204167, lon:34.465556, cows:"", comments:"Construction completed and feeding demonstrated" },
+                { number:22, name:"Esther Kemwi", idno:"24325612", phone:"0726051701 0727216986", subcounty:"Kuria West", ward:"Bukumbe North", village:"nyamaga", lat:-1.129722, lon:34.563611, cows:"", comments:"Construction completed and feeding recommended" },
+                { number:23, name:"Gatarine Juma", idno:"13599780", phone:"0721596057", subcounty:"Kuria West", ward:"Kakrao", village:"Lower kakrao", lat:-1.005556, lon:34.449722, cows:"", comments:"Construction completed and feeding recommended" },
+                { number:24, name:"Paul Otieno", idno:"1572433", phone:"0722695455", subcounty:"Rongo", ward:"South Kamagambo", village:"Kanyi Machu", lat:-0.919167, lon:34.608611, cows:"", comments:"Suitable site. Construction to start" },
+                { number:25, name:"Rhoda Ojwang", idno:"", phone:"0721550982", subcounty:"Suna East", ward:"Nyabisawa", village:"Kasembo", lat:null, lon:null, cows:"", comments:"Construction underway" }
+            ],
+            "homa bay": [
+                { number:1, name:"Elijah Odongo", idno:"23585998", phone:"0724161566", subcounty:"Rachuonyo East", ward:"Kabondo East", village:"Otondo", lat:-0.451111, lon:34.955556, cows:"", comments:"Recommended" },
+                { number:2, name:"Salina Abonyo Odera", idno:"1526285", phone:"0704323593", subcounty:"Rachuonyo East", ward:"Kabondo East", village:"Pala", lat:-0.4325, lon:34.988056, cows:"", comments:"Construction completed and feeding underway" },
+                { number:3, name:"Josiah Seda", idno:"12597068", phone:"0723062695", subcounty:"Rachuonyo East", ward:"Kabondo East", village:"Osaso", lat:-0.431389, lon:34.968889, cows:"", comments:"Recommended" },
+                { number:4, name:"Grace Atieno Alandi", idno:"3976289", phone:"0711795218", subcounty:"Rachuonyo East", ward:"Kojwach", village:"Kabonyo", lat:-0.431389, lon:34.968889, cows:"", comments:"Construction completed and cooking" },
+                { number:5, name:"Solomon Njoga", idno:"7083490", phone:"0721791026", subcounty:"Rachuonyo South", ward:"South Kasipul", village:"Kachwecho", lat:-0.549167, lon:34.727222, cows:"", comments:"Construction completed and feeding underway" },
+                { number:6, name:"Joseph Ogenya", idno:"1479924", phone:"0713046363", subcounty:"Rangwe", ward:"East Gem", village:"Kamolo", lat:-0.590556, lon:34.634167, cows:"", comments:"Recommended" },
+                { number:7, name:"Peter Omwaro Oda", idno:"6770907", phone:"0726457867", subcounty:"Rangwe", ward:"East Gem", village:"Kabuor", lat:-0.589444, lon:34.61, cows:"", comments:"Recommended" },
+                { number:8, name:"Priscilla Chelegat", idno:"20789481", phone:"0708329377", subcounty:"Homabay", ward:"Homa Bay East", village:"Ndiru Nyakoyo", lat:-0.616389, lon:34.507778, cows:"", comments:"Recommended" },
+                { number:9, name:"Dibora Ating’a", idno:"14550288", phone:"0711775159", subcounty:"Homabay", ward:"West Kanyada", village:"Radiro", lat:-0.562778, lon:34.446389, cows:"", comments:"Recommended" },
+                { number:10, name:"Zachary Oyieko", idno:"11634102", phone:"0725796474", subcounty:"Rachuonyo North", ward:"Wang’chieng’", village:"Kanyawanga", lat:-0.353333, lon:34.709444, cows:"", comments:"Construction completed and feeding underway" },
+                { number:11, name:"Elisha Okoth Odipo", idno:"8913921", phone:"0775271419", subcounty:"Rachuonyo North", ward:"Wang’chieng’", village:"Kogana", lat:-0.400556, lon:34.725833, cows:"", comments:"Construction completed and feeding underway" },
+                { number:12, name:"Alphonse Adoko", idno:"0505617", phone:"0700530251", subcounty:"Rachuonyo North", ward:"Wang’chieng’", village:"Koluoch", lat:-0.3725, lon:34.728889, cows:"", comments:"Construction completed and feeding underway" },
+                { number:13, name:"Fatuma Aoko Ibrahim", idno:"16000364", phone:"0727609208", subcounty:"Rachuonyo North", ward:"Wang’chieng’", village:"Kanyabande", lat:-0.408333, lon:34.735833, cows:"", comments:"Construction completed and feeding underway" },
+                { number:14, name:"Risper Osumba", idno:"", phone:"0707181449", subcounty:"Rachuonyo North", ward:"Wang’chieng’", village:"Kogana", lat:-0.395833, lon:34.729167, cows:"", comments:"Construction completed and feeding underway" },
+                { number:15, name:"Risper Atieno Odul", idno:"7949118", phone:"0714745150", subcounty:"Rachuonyo South", ward:"Kasipul South", village:"Kokal", lat:-0.522778, lon:34.736389, cows:"", comments:"Recommended" },
+                { number:16, name:"Pius Otieno Aomo", idno:"5211582", phone:"0707931498", subcounty:"Rachuonyo South", ward:"Kojwach", village:"Ogila", lat:-0.480556, lon:34.828333, cows:"", comments:"Construction completed and cooking" },
+                { number:17, name:"Selemiah Ouma Mbaka", idno:"8246537", phone:"0704869043", subcounty:"Rachuonyo South", ward:"West Kasipul", village:"Nyabola", lat:null, lon:null, cows:"", comments:"" },
+                { number:18, name:"Joan Kadima Onyango", idno:"22541329", phone:"0729926140", subcounty:"Rachuonyo East", ward:"Kakelo-Kokwanyo", village:"Nyiremo", lat:-0.479722, lon:34.818889, cows:"", comments:"Construction completed and feeding underway" },
+                { number:19, name:"Rhoda Anyango", idno:"1532337", phone:"0711645526", subcounty:"Rachuonyo North", ward:"Kindu town", village:"Nyaera", lat:-0.391667, lon:34.659722, cows:"", comments:"Construction completed and feeding underway" },
+                { number:20, name:"Eunice Juma Omuga", idno:"0955806", phone:"0728742578", subcounty:"Rachuonyo North", ward:"Kindu town", village:"Nyaburi", lat:-0.395556, lon:34.66, cows:"", comments:"Construction completed and feeding underway" },
+                { number:21, name:"Eliud Jabuya", idno:"16080537", phone:"0722487072", subcounty:"Rachuonyo North", ward:"Wangchieng", village:"Kouko", lat:-0.400278, lon:34.716667, cows:"", comments:"Construction completed and feeding underway" },
+                { number:22, name:"Roselida Akello", idno:"8227965", phone:"0723733940", subcounty:"Rachuonyo north", ward:"Kanyaluo", village:"Rabware", lat:-0.460556, lon:34.604444, cows:"", comments:"Recommended" },
+                { number:23, name:"Grace Aloo", idno:"2548495", phone:"0721967514", subcounty:"Rachuonyo north", ward:"Kanyaluo", village:"Lwanda", lat:-0.473889, lon:34.611111, cows:"", comments:"Construction completed and feeding underway" },
+                { number:24, name:"Isack Oyieko Ogalla", idno:"2644092", phone:"0722439740", subcounty:"Rachuonyo north", ward:"Kanyaluo", village:"Kamenya", lat:-0.471667, lon:34.616944, cows:"", comments:"Construction completed and feeding underway" },
+                { number:25, name:"Delafield Otieno Omollo", idno:"5856359", phone:"0727688251", subcounty:"Homabay", ward:"Arojo", village:"Lala", lat:-0.551111, lon:34.448611, cows:"", comments:"Recommended" },
+                { number:26, name:"Boaz Omune", idno:"1490277", phone:"0722859218", subcounty:"Homabay", ward:"Arojo", village:"Ruga", lat:-0.556667, lon:34.453333, cows:"", comments:"Recommended" },
+                { number:27, name:"Sophia Odul", idno:"2732885", phone:"0724857609", subcounty:"Rachuonyo south", ward:"South Kasipul", village:"Kasimba", lat:null, lon:null, cows:"", comments:"Construction completed and feeding underway" },
+                { number:28, name:"Joyce Ponde", idno:"8125713", phone:"0721320052", subcounty:"Rachuonyo south", ward:"South Kasipul", village:"kasimba", lat:null, lon:null, cows:"", comments:"Construction completed and feeding underway" },
+                { number:29, name:"Phoebe Akinyi Ogada", idno:"13189043", phone:"0724803243", subcounty:"Rachuonyo south", ward:"South Kasipul", village:"Koketch", lat:null, lon:null, cows:"", comments:"" },
+                { number:30, name:"Rose Atieno Weke", idno:"25526536", phone:"0710787343", subcounty:"Rachuonyo south", ward:"South kasipul", village:"Koketch", lat:null, lon:null, cows:"", comments:"Construction completed and feeding underway" },
+                { number:31, name:"Joyce Opondo", idno:"", phone:"", subcounty:"", ward:"", village:"", lat:null, lon:null, cows:"", comments:"" },
+                { number:32, name:"Philip Otieno", idno:"29521473", phone:"", subcounty:"Rachuonyo East", ward:"", village:"", lat:null, lon:null, cows:"", comments:"" },
+                { number:33, name:"Kilion Ndunya", idno:"22803263", phone:"", subcounty:"Kabondo East", ward:"", village:"", lat:null, lon:null, cows:"", comments:"" },
+                { number:34, name:"Charles Odede", idno:"", phone:"", subcounty:"", ward:"", village:"", lat:null, lon:null, cows:"", comments:"Construction completed and feeding underway" },
+                { number:35, name:"Felix Abuna Otieno", idno:"13776281", phone:"0721230652", subcounty:"Rachuonyo East", ward:"Kakelo-kokwayo", village:"Agoro", lat:-0.488056, lon:34.798056, cows:"", comments:"Suitable site. Construction to start" },
+                { number:36, name:"James Oindi", idno:"6693668", phone:"0721211651", subcounty:"Rachuonyo East", ward:"Kojwach", village:"Ogera", lat:-0.490278, lon:34.825833, cows:"", comments:"Suitable site. Construction to start" }
             ]
         };
 
-        let currentData = [];
+         const counties = [
+        'Embu',
+        'Homa Bay',
+        'Kiambu',
+        'Kirinyaga',
+        'Machakos',
+        'Meru',
+        'Migori',
+        'Nairobi',
+        'Nakuru',
+        'Nandi',
+        'Nyeri',
+        'Tharaka Nithi',
+        'Vihiga'
+    ];
+
+     // Get the select element
+    const select = document.getElementById('countySelect');
+
+    // Populate the dropdown with counties
+    counties.forEach(county => {
+        const option = document.createElement('option');
+        option.value = county.toLowerCase(); // Use lowercase for consistency in data handling
+        option.text = county + ' County'; // Display with "County" suffix
+        select.appendChild(option);
+    });
+
+    let currentData = [];
+
+    let map;
+
+    let markersLayer;
+
+    let userRole = localStorage.getItem('userRole') || 'guest';
+
+
+       
+
+     
+
+        function checkUserRole() {
+
+            if (userRole === 'admin') {
+
+                document.querySelectorAll('.update-btn, .delete-btn').forEach(btn => btn.classList.remove('d-none'));
+
+                document.getElementById('addBtn').classList.remove('d-none');
+
+                document.getElementById('authBtn').textContent = 'Logout';
+
+                document.getElementById('authBtn').onclick = logout;
+
+            } else {
+
+                document.querySelectorAll('.update-btn, .delete-btn').forEach(btn => btn.classList.add('d-none'));
+
+                document.getElementById('addBtn').classList.add('d-none');
+
+                document.getElementById('authBtn').textContent = 'Login';
+
+                document.getElementById('authBtn').onclick = showLoginModal;
+
+            }
+
+        }
+
+        function showLoginModal() {
+
+            document.getElementById('passwordGroup').classList.add('d-none');
+
+            document.getElementById('role').value = 'guest';
+
+            new bootstrap.Modal(document.getElementById('loginModal')).show();
+
+        }
+
+        function logout() {
+
+            localStorage.removeItem('userRole');
+
+            userRole = 'guest';
+
+            checkUserRole();
+
+            populateTable(currentData);
+
+        }
+
+        document.getElementById('role').addEventListener('change', function() {
+
+            if (this.value === 'admin') {
+
+                document.getElementById('passwordGroup').classList.remove('d-none');
+
+            } else {
+
+                document.getElementById('passwordGroup').classList.add('d-none');
+
+            }
+
+        });
+
+        document.getElementById('loginSubmitBtn').addEventListener('click', () => {
+
+            const role = document.getElementById('role').value;
+
+            if (role === 'guest') {
+
+                localStorage.setItem('userRole', 'guest');
+
+                userRole = 'guest';
+
+                bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+
+                checkUserRole();
+
+            } else if (role === 'admin') {
+
+                const password = document.getElementById('password').value;
+
+                if (password === 'Biogas2025') {
+
+                    localStorage.setItem('userRole', 'admin');
+
+                    userRole = 'admin';
+
+                    bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+
+                    checkUserRole();
+
+                } else {
+
+                    alert('Incorrect password');
+
+                }
+
+            }
+
+        });
+
+        document.getElementById('authBtn').onclick = showLoginModal;
+
+        checkUserRole();
+
+        function parseDMS(coordStr) {
+
+            if (!coordStr) return {lat: null, lon: null};
+
+            coordStr = coordStr.replace(/⸰/g, '°').replace(/’/g, "'").replace(/”/g, '"').replace(/‘/g, "'").replace(/’’/g, '"').replace(/\s/g, '');
+
+            const latMatch = coordStr.match(/(\d{1,2}°?\d{1,2}'?\d{1,2}"?[NS])/i);
+
+            const lonMatch = coordStr.match(/(\d{1,2}°?\d{1,2}'?\d{1,2}"?[EW])/i);
+
+            if (!latMatch || !lonMatch) return {lat: null, lon: null};
+
+            const latStr = latMatch[0];
+
+            const lonStr = lonMatch[0];
+
+            function dmsToDec(str) {
+
+                let sign = (str.toUpperCase().includes('S') || str.toUpperCase().includes('W')) ? -1 : 1;
+
+                str = str.replace(/[NSEW°'"]/gi, '');
+
+                const parts = str.match(/(\d+)(\d+)(\d+)/);
+
+                if (parts) {
+
+                    const deg = parseInt(parts[1]);
+
+                    const min = parseInt(parts[2]);
+
+                    const sec = parseInt(parts[3]);
+
+                    return sign * (deg + min / 60 + sec / 3600);
+
+                }
+
+                return null;
+
+            }
+
+            const lat = dmsToDec(latStr);
+
+            const lon = dmsToDec(lonStr);
+
+            return {lat, lon};
+
+        }
+
+        // Parse coordinates on load
+
+        Object.keys(data).forEach(county => {
+
+            data[county].forEach(b => {
+
+                if (b.lat === null && b.gps) {
+
+                    const parsed = parseDMS(b.gps);
+
+                    if (parsed.lat !== null) {
+
+                        b.lat = parsed.lat;
+
+                        b.lon = parsed.lon;
+
+                    }
+
+                }
+
+            });
+
+        });
 
         function populateTable(beneficiaries) {
+
             const tbody = document.querySelector('#beneficiariesTable tbody');
+
             tbody.innerHTML = '';
-            beneficiaries.forEach(b => {
-                const callAttr = b.phone ? `href="tel:${b.phone.split('\n')[0]}"` : `onclick="alert('missing contact')"`;
+
+            beneficiaries.forEach((b, index) => {
+
+                const callAttr = b.phone ? `href="tel:${b.phone.split('\\n')[0]}"` : `onclick="alert('missing contact')"`;
+
                 const locationAttr = b.lat !== null ? `href="https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lon}" target="_blank"` : `onclick="alert('missing coordinates')"`;
+
                 const row = document.createElement('tr');
+
                 row.innerHTML = `
+
                     <td>${b.number}</td>
+
                     <td>${b.name}</td>
+
                     <td>${b.idno}</td>
-                    <td>${b.phone.replace(/\n/g, '<br>')}</td>
+
                     <td>${b.subcounty}</td>
+
                     <td>${b.ward}</td>
+
                     <td>${b.village}</td>
+
                     <td>${b.cows}</td>
-                    <td>${b.zgunit}</td>
+
                     <td>${b.comments}</td>
+
                     <td>
+
                         <div class="action-buttons">
+
                             <a ${callAttr} class="btn btn-primary btn-sm">Call</a>
+
                             <a ${locationAttr} class="btn btn-success btn-sm">View Location</a>
+
+                            <button class="btn btn-warning btn-sm update-btn" data-index="${index}">Update</button>
+
+                            <button class="btn btn-danger btn-sm delete-btn" data-index="${index}">Delete</button>
+
                         </div>
+
                     </td>
+
                 `;
+
                 tbody.appendChild(row);
+
             });
+
+            checkUserRole();
+
+        }
+
+        function updateMap(beneficiaries) {
+
+            if (!map) {
+
+                map = L.map('map').setView([0, 35], 6);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+
+                }).addTo(map);
+
+                markersLayer = L.layerGroup().addTo(map);
+
+            }
+
+            markersLayer.clearLayers();
+
+            let bounds = L.latLngBounds([]);
+
+            beneficiaries.forEach(b => {
+
+                if (b.lat !== null && b.lon !== null) {
+
+                    let marker = L.circleMarker([b.lat, b.lon], {
+
+                        radius: 5,
+
+                        color: 'red',
+
+                        fillColor: 'red',
+
+                        fillOpacity: 1
+
+                    });
+
+                    marker.bindPopup(`<b>${b.name}</b><br>ID: ${b.idno}<br>Phone: ${b.phone}<br>Sub-County: ${b.subcounty}<br>Ward: ${b.ward}<br>Village: ${b.village}<br>Cows: ${b.cows}<br>Comments: ${b.comments}`);
+
+                    markersLayer.addLayer(marker);
+
+                    bounds.extend([b.lat, b.lon]);
+
+                }
+
+            });
+
+            if (markersLayer.getLayers().length > 0) {
+
+                map.fitBounds(bounds, {padding: [50, 50]});
+
+            } else {
+
+                map.setView([0, 35], 6);
+
+            }
+
         }
 
         function filterData() {
+
             const name = document.getElementById('nameFilter').value.toLowerCase();
+
             const subcounty = document.getElementById('subcountyFilter').value.toLowerCase();
+
             const ward = document.getElementById('wardFilter').value.toLowerCase();
+
             const village = document.getElementById('villageFilter').value.toLowerCase();
+
             const filtered = currentData.filter(b => 
+
                 b.name.toLowerCase().includes(name) &&
+
                 b.subcounty.toLowerCase().includes(subcounty) &&
+
                 b.ward.toLowerCase().includes(ward) &&
+
                 b.village.toLowerCase().includes(village)
+
             );
+
             populateTable(filtered);
+
+            updateMap(filtered);
+
+        }
+
+        function addBeneficiary() {
+
+            const county = document.getElementById('county').value.toLowerCase();
+
+            const name = document.getElementById('name').value;
+
+            const idno = document.getElementById('idno').value;
+
+            const phone = document.getElementById('phone').value;
+
+            const subcounty = document.getElementById('subcounty').value;
+
+            const ward = document.getElementById('ward').value;
+
+            const village = document.getElementById('village').value;
+
+            const lat = parseFloat(document.getElementById('lat').value) || null;
+
+            const lon = parseFloat(document.getElementById('lon').value) || null;
+
+            const cows = parseInt(document.getElementById('cows').value) || '';
+
+            const comments = document.getElementById('comments').value;
+
+            if (!county || !name) {
+
+                alert('County and Name are required');
+
+                return;
+
+            }
+
+            if (!data[county]) {
+
+                data[county] = [];
+
+                const option = document.createElement('option');
+
+                option.value = county;
+
+                option.text = county.charAt(0).toUpperCase() + county.slice(1) + ' County';
+
+                document.getElementById('countySelect').appendChild(option);
+
+            }
+
+            const newB = { name, idno, phone, subcounty, ward, village, lat, lon, cows, comments };
+
+            data[county].push(newB);
+
+            data[county].forEach((item, i) => item.number = i + 1);
+
+            localStorage.setItem('biogasData', JSON.stringify(data));
+
+            const currentCounty = document.getElementById('countySelect').value;
+
+            if (currentCounty === county) {
+
+                currentData = data[county];
+
+                populateTable(currentData);
+
+                updateMap(currentData);
+
+            }
+
+            bootstrap.Modal.getInstance(document.getElementById('beneficiaryModal')).hide();
+
+        }
+
+        function updateBeneficiary(index) {
+
+            const county = document.getElementById('county').value.toLowerCase();
+
+            const currentCounty = document.getElementById('countySelect').value;
+
+            if (county !== currentCounty) {
+
+                data[currentCounty].splice(index, 1);
+
+                data[currentCounty].forEach((item, i) => item.number = i + 1);
+
+                addBeneficiary();
+
+                currentData = data[currentCounty];
+
+                populateTable(currentData);
+
+                updateMap(currentData);
+
+                return;
+
+            }
+
+            const b = data[county][index];
+
+            b.name = document.getElementById('name').value;
+
+            b.idno = document.getElementById('idno').value;
+
+            b.phone = document.getElementById('phone').value;
+
+            b.subcounty = document.getElementById('subcounty').value;
+
+            b.ward = document.getElementById('ward').value;
+
+            b.village = document.getElementById('village').value;
+
+            b.lat = parseFloat(document.getElementById('lat').value) || null;
+
+            b.lon = parseFloat(document.getElementById('lon').value) || null;
+
+            b.cows = parseInt(document.getElementById('cows').value) || '';
+
+            b.comments = document.getElementById('comments').value;
+
+            localStorage.setItem('biogasData', JSON.stringify(data));
+
+            populateTable(currentData);
+
+            updateMap(currentData);
+
+            bootstrap.Modal.getInstance(document.getElementById('beneficiaryModal')).hide();
+
         }
 
         document.getElementById('nameFilter').addEventListener('input', filterData);
+
         document.getElementById('subcountyFilter').addEventListener('input', filterData);
+
         document.getElementById('wardFilter').addEventListener('input', filterData);
+
         document.getElementById('villageFilter').addEventListener('input', filterData);
 
         document.getElementById('countySelect').addEventListener('change', function() {
+
             const county = this.value;
+
             if (county) {
+
                 currentData = data[county];
+
                 populateTable(currentData);
+
+                updateMap(currentData);
+
                 document.getElementById('content').style.display = 'block';
+
             } else {
+
                 document.getElementById('content').style.display = 'none';
+
             }
+
+        });
+
+        document.getElementById('addBtn').addEventListener('click', () => {
+
+            document.getElementById('beneficiaryForm').reset();
+
+            document.getElementById('county').value = document.getElementById('countySelect').value;
+
+            document.getElementById('beneficiaryModalLabel').innerText = 'Add Beneficiary';
+
+            document.getElementById('saveBtn').onclick = addBeneficiary;
+
+            new bootstrap.Modal(document.getElementById('beneficiaryModal')).show();
+
+        });
+
+        document.getElementById('beneficiariesTable').addEventListener('click', (e) => {
+
+            if (e.target.classList.contains('update-btn')) {
+
+                const index = e.target.dataset.index;
+
+                const b = currentData[index];
+
+                document.getElementById('county').value = document.getElementById('countySelect').value;
+
+                document.getElementById('name').value = b.name;
+
+                document.getElementById('idno').value = b.idno;
+
+                document.getElementById('phone').value = b.phone;
+
+                document.getElementById('subcounty').value = b.subcounty;
+
+                document.getElementById('ward').value = b.ward;
+
+                document.getElementById('village').value = b.village;
+
+                document.getElementById('lat').value = b.lat;
+
+                document.getElementById('lon').value = b.lon;
+
+                document.getElementById('cows').value = b.cows;
+
+                document.getElementById('comments').value = b.comments;
+
+                document.getElementById('beneficiaryModalLabel').innerText = 'Update Beneficiary';
+
+                document.getElementById('saveBtn').onclick = () => updateBeneficiary(index);
+
+                new bootstrap.Modal(document.getElementById('beneficiaryModal')).show();
+
+            } else if (e.target.classList.contains('delete-btn')) {
+
+                const index = e.target.dataset.index;
+
+                if (confirm('Are you sure you want to delete this beneficiary?')) {
+
+                    const county = document.getElementById('countySelect').value;
+
+                    data[county].splice(index, 1);
+
+                    data[county].forEach((item, i) => item.number = i + 1);
+
+                    localStorage.setItem('biogasData', JSON.stringify(data));
+
+                    currentData = data[county];
+
+                    populateTable(currentData);
+
+                    updateMap(currentData);
+
+                }
+
+            }
+
         });
     </script>
 </body>
