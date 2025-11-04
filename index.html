@@ -1295,15 +1295,35 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
         alert('No data to download');
         return;
     }
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
+
+    // Define margins and starting positions
+    const margin = 14;
+    const titleY = 15; // Title near the top
+    const tableStartY = titleY + 10; // Table starts 10 units below title
+
+    // Add the title at the top
+    const countyName = document.getElementById('countySelect')
+        .options[document.getElementById('countySelect').selectedIndex].text;
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Beneficiaries of ${countyName}`, margin, titleY);
+
+    // Add the table below the title
     doc.autoTable({
         head: [['#', 'Name', 'ID No.', 'Sub-County', 'Ward', 'Village', 'No. of Cows', 'Comments']],
         body: currentData.map(b => [b.number, b.name, b.idno, b.subcounty, b.ward, b.village, b.cows, b.comments]),
-        startY: 20,
+        startY: tableStartY,
         theme: 'grid',
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [41, 87, 141] },
+        margin: { top: tableStartY }
     });
-    doc.text(`Beneficiaries of ${document.getElementById('countySelect').options[document.getElementById('countySelect').selectedIndex].text}`, 14, 15);
+
+    // Save the PDF
     doc.save(`${document.getElementById('countySelect').value}_beneficiaries.pdf`);
-});</script></body></html>
+});
+</script></body></html>
 
