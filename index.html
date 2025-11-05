@@ -22,7 +22,7 @@
         nav ul li { margin-right: 20px; color: white; cursor: pointer; }
         nav ul li:last-child { margin-left: auto; }
         .banner { text-align: center; margin: 2rem 0; }
-        .banner h2 { font-weight: 900; }
+        .banner h2 { font-weight: 900; } /* Made bold and thick */
         .content-section { max-width: 1200px; margin: auto; padding: 1rem; display: none;  }
         #countySelect { max-width: 300px; margin: auto; display: block; }
         #selector { text-align: center; margin: 2rem 0; }
@@ -32,6 +32,7 @@
         .action-buttons .btn { width: 100px; height: 32px; display: flex; align-items: center; justify-content: center; }
         #map { height: 400px; }
         #map.expanded { height: 80vh; }
+        .guest-mode .admin-only { display: none; }
 
 @media (max-width: 768px) {
     .top-bar { padding: 5px 10px; flex-wrap: wrap; }
@@ -112,13 +113,16 @@
             <tr>
                 <th>#</th>
                 <th>Name</th>
-                <th>ID No.</th>
+                <th class="admin-only">ID No.</th>
+                <th class="admin-only">Phone No.</th>
                 <th>Sub-County</th>
                 <th>Ward</th>
                 <th>Village</th>
                 <th>No. of Cows</th>
+                <th class="admin-only">Latitude</th>
+                <th class="admin-only">Longitude</th>
                 <th>Comments</th>
-                <th>Actions</th>
+                <th class="admin-only">Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -573,7 +577,7 @@
         { number:19, name:"Judy Jemtai Kiplagat", idno:"13065003", phone:"0726684514", subcounty:"Nyadundo", ward:"Solai", village:"Edao", lat:-0.077222, lon:35.116389, cows:4, comments:"Construction Completed" },
         { number:20, name:"Nelly Nyambura", idno:"24827905", phone:"0717626439", subcounty:"Rongai", ward:"Menengai West", village:"Mangu", lat:-0.2075, lon:35.966944, cows:3, comments:"Construction Completed (??dome)" },
         { number:21, name:"Alice Nduta Macharia", idno:"1335379", phone:"0710916500", subcounty:"Rongai", ward:"Menengai West", village:"Ngombe  Moja", lat:-0.208611, lon:35.973333, cows:3, comments:"Construction Completed" },
-        { number:22, name:"Philip Lagat", idno:"0434450", phone:"0726305488", subcounty:"Rongai", ward:"Visoi", village:"Kware Kapkwen", lat:0.141389, lon:35.816944, cows:5, comments:"To repair unit, no concrete.\\nRecommended" },
+        { number:22, name:"Thomas Lagat", idno:"0434450", phone:"0726305488", subcounty:"Rongai", ward:"Visoi", village:"Kware Kapkwen", lat:0.141389, lon:35.816944, cows:5, comments:"To repair unit, no concrete.\\nRecommended" },
         { number:23, name:"Thomas Kitilit Kibet", idno:"20824893", phone:"0720438788", subcounty:"Subikia", ward:"Kabazi", village:"Mrigat Farm", lat:0.116667, lon:36.079722, cows:6, comments:"Construction completed" },
         { number:24, name:"Willy Mwangi Waweru", idno:"20788630", phone:"0797567841", subcounty:"Subukia", ward:"Kabazi", village:"Jumatatu Farm", lat:0.072778, lon:36.168611, cows:4, comments:"Construction completed" },
         { number:25, name:"Jane Wanjiru Nyoike", idno:"3874645", phone:"0727540042", subcounty:"Subukia", ward:"Solai", village:"Marigu", lat:-0.061944, lon:36.122222, cows:2, comments:"Construction completed" },
@@ -728,27 +732,20 @@ counties.forEach(county => {
 });let currentData = [];let map;let markersLayer;let userRole = localStorage.getItem('userRole') || 'guest';function checkUserRole() {
 
     if (userRole === 'admin') {
-
+        document.body.classList.remove('guest-mode');
         document.querySelectorAll('.update-btn, .delete-btn').forEach(btn => btn.classList.remove('d-none'));
-
         document.getElementById('addBtn').classList.remove('d-none');
-
         document.getElementById('authBtn').textContent = 'Logout';
-
         document.getElementById('authBtn').onclick = logout;
-
     } else {
-
+        document.body.classList.add('guest-mode');
         document.querySelectorAll('.update-btn, .delete-btn').forEach(btn => btn.classList.add('d-none'));
-
         document.getElementById('addBtn').classList.add('d-none');
-
         document.getElementById('authBtn').textContent = 'Admin';
-
         document.getElementById('authBtn').onclick = showLoginModal;
-
     }
-
+    populateTable(currentData);
+    updateMap(currentData);
 }
 
 function showLoginModal() {
@@ -768,8 +765,6 @@ function logout() {
     userRole = 'guest';
 
     checkUserRole();
-
-    populateTable(currentData);
 
 }
 
@@ -913,27 +908,11 @@ function populateTable(beneficiaries) {
 
         const locationAttr = b.lat !== null ? `href="https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lon}" target="_blank"` : `onclick="alert('missing coordinates')"`;
 
-        const row = document.createElement('tr');
+        let actionButtons = '';
 
-        row.innerHTML = `
+        if (userRole === 'admin') {
 
-            <td>${b.number}</td>
-
-            <td>${b.name}</td>
-
-            <td>${b.idno}</td>
-
-            <td>${b.subcounty}</td>
-
-            <td>${b.ward}</td>
-
-            <td>${b.village}</td>
-
-            <td>${b.cows}</td>
-
-            <td>${b.comments}</td>
-
-            <td>
+            actionButtons = `
 
                 <div class="action-buttons">
 
@@ -947,15 +926,43 @@ function populateTable(beneficiaries) {
 
                 </div>
 
-            </td>
+            `;
+
+        }
+
+        const row = document.createElement('tr');
+
+        row.innerHTML = `
+
+            <td>${b.number}</td>
+
+            <td>${b.name}</td>
+
+            <td class="admin-only">${b.idno}</td>
+
+            <td class="admin-only">${b.phone}</td>
+
+            <td>${b.subcounty}</td>
+
+            <td>${b.ward}</td>
+
+            <td>${b.village}</td>
+
+            <td>${b.cows}</td>
+
+            <td class="admin-only">${b.lat}</td>
+
+            <td class="admin-only">${b.lon}</td>
+
+            <td>${b.comments}</td>
+
+            <td class="admin-only">${actionButtons}</td>
 
         `;
 
         tbody.appendChild(row);
 
     });
-
-    checkUserRole();
 
 }
 
@@ -995,13 +1002,21 @@ function updateMap(beneficiaries) {
 
             });
 
-            marker.bindPopup(`<b>${b.name}</b>ID: ${b.idno}
-Phone: ${b.phone}
-Sub-County: ${b.subcounty}
-Ward: ${b.ward}
-Village: ${b.village}
-Cows: ${b.cows}
-Comments: ${b.comments}`);            markersLayer.addLayer(marker);
+            let popupContent;
+
+            if (userRole === 'admin') {
+
+                popupContent = `<b>${b.name}</b><br>ID: ${b.idno}<br>Phone: ${b.phone}<br>Sub-County: ${b.subcounty}<br>Ward: ${b.ward}<br>Village: ${b.village}<br>Cows: ${b.cows}<br>Comments: ${b.comments}`;
+
+            } else {
+
+                popupContent = `<b>${b.name}</b><br>Sub-County: ${b.subcounty}<br>Ward: ${b.ward}<br>Village: ${b.village}<br>Cows: ${b.cows}<br>Comments: ${b.comments}`;
+
+            }
+
+            marker.bindPopup(popupContent);
+
+            markersLayer.addLayer(marker);
 
             bounds.extend([b.lat, b.lon]);
 
@@ -1312,10 +1327,20 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
     doc.setFont('helvetica', 'bold');
     doc.text(`Beneficiaries of ${countyName}`, margin, titleY);
 
+    let head;
+    let bodyData;
+    if (userRole === 'admin') {
+        head = [['#', 'Name', 'ID No.', 'Phone No.', 'Sub-County', 'Ward', 'Village', 'No. of Cows', 'Latitude', 'Longitude', 'Comments']];
+        bodyData = currentData.map(b => [b.number, b.name, b.idno, b.phone, b.subcounty, b.ward, b.village, b.cows, b.lat, b.lon, b.comments]);
+    } else {
+        head = [['#', 'Name', 'Sub-County', 'Ward', 'Village', 'No. of Cows', 'Comments']];
+        bodyData = currentData.map(b => [b.number, b.name, b.subcounty, b.ward, b.village, b.cows, b.comments]);
+    }
+
     // Add the table below the title
     doc.autoTable({
-        head: [['#', 'Name', 'ID No.', 'Sub-County', 'Ward', 'Village', 'No. of Cows', 'Comments']],
-        body: currentData.map(b => [b.number, b.name, b.idno, b.subcounty, b.ward, b.village, b.cows, b.comments]),
+        head: head,
+        body: bodyData,
         startY: tableStartY,
         theme: 'grid',
         styles: { fontSize: 10 },
@@ -1327,4 +1352,3 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
     doc.save(`${document.getElementById('countySelect').value}_beneficiaries.pdf`);
 });
 </script></body></html>
-
